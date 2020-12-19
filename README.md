@@ -1,2 +1,2 @@
 # pybind11_tensor
-Simple header-only library for exposing Eigen::Tensors to python in C++ pybind11 modules
+Simple header-only library for exposing Eigen::Tensors to python within C++ pybind11 modules.
