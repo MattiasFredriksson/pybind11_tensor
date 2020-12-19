@@ -37,17 +37,6 @@ Eigen::array<Index, rank> operator*(const Eigen::array<Index, rank>& numerator, 
 }
 
 
-struct print_on_destroy {
-    std::string txt;
-    print_on_destroy()
-        : txt("Destroyed") {}
-    print_on_destroy(std::string& ref)
-        : txt(std::move(ref)) {}
-    ~print_on_destroy() {
-        std::cout << "Destroyed" << std::endl;
-    }
-};
-
 #pragma endregion
 
 template<typename T>
@@ -190,19 +179,19 @@ public:
     template<bool row_major, typename DataT, typename ShapeT>
     static void reconstruct_byte_shape(const DataT* view_shape, const DataT* byte_stride, ShapeT* shape, ShapeT* stride, size_t ndim, size_t item_byte_size) {
         constexpr int incr = row_major ? -1 : 1;
-        constexpr int limit = row_major ? -1 : ndim;
-        int offset = row_major ? ndim - 1 : 0;
+        constexpr int limit = row_major ? -1 : (int)ndim;
+        int offset = row_major ? (int)ndim - 1 : 0;
 
         // Base case
         int cuml_shape = 1;
-        int S = *(byte_stride + offset) / item_byte_size;
+        int S = (int)(*(byte_stride + offset) / item_byte_size);
         *(stride + offset) = S;
 
         // Unravel the shape
         for (int i = offset + incr; i != limit; i += incr) {
             int i_p = i - incr;
-            int B = *(byte_stride + i) / (item_byte_size * cuml_shape);
-            int y_p = S * *(view_shape + i_p);
+            int B = (int)(*(byte_stride + i) / (item_byte_size * cuml_shape));
+            int y_p = S * (int)*(view_shape + i_p);
             int k = B % y_p;
 
             if (k == 0 && S != 1)       // if S == 1 => D = *(view_shape + i_p)
@@ -384,21 +373,20 @@ private:
 
     static constexpr bool is_writeable = is_eigen_mutable_tensor<TensorType>::value;
     static constexpr bool array_flags =
-        (props::row_major ? array::c_style : array::f_style) |          // Memory continous (row/col) 
-        (is_writeable ? npy_api::constants::NPY_ARRAY_WRITEABLE_ : 0);  // Write flag
+        (props::row_major ? array::c_style : array::f_style) |              // Memory continous (row/col) 
+        (is_writeable ? npy_api::constants::NPY_ARRAY_WRITEABLE_ : false);  // Write flag
 
     using Array = array_t<Scalar, array_flags>;
 
-
+    // Callback using the destructor to update any changes done to the copy
+    // back to the original data source.
     struct UpdateCallback {
-        using Shape = Eigen::array<EigenIndex, props::rank>;
-        bool update = false;
-        array src_ref;      // Write buffer (need update).
+        array src_ref;      // Write buffer (original data source, needs to be updated).
         Array src_copy;     // Read buffer  (presumably changed during function call).
 
         UpdateCallback()
-            : update(false), src_ref(), src_copy() {}
-        
+            : src_ref(), src_copy() {}
+
         ~UpdateCallback() {
             if (src_ref.size() <= 0)
                 return;
@@ -406,8 +394,7 @@ private:
             // Update source buffer
             py::buffer_info src = src_ref.request(true);
             if (!src.ptr)
-                throw std::runtime_error("Failed to acquire write buffer.");
-
+                pybind11::print("UpdateCallback failed to acquire write buffer when updating the source buffer.");
 
             TShape rshape = TShape::item_shape(src_copy);
             TShape wshape = TShape::item_shape(src_ref);
@@ -418,9 +405,9 @@ private:
         }
     };
 
-    // Delay construction (no default constructor)
+    // Callback updating the input data src after python call ends.
     UpdateCallback callback;
-    Array ref;
+    // TensorMap mapping the input data either directly or the copy.
     std::unique_ptr<Type> map;
 
 public:
@@ -428,10 +415,10 @@ public:
         //Check array_t argument matches the scalar type.
         bool array_type_mismatch = !isinstance<Array>(src);
 
-        // Only support row major (c_style) tensors
+        // No support for row major (c_style) tensors
         if (check_flags(src.ptr(), array::f_style))
             return false;
-        // Verify we are allowed to write
+        // Verify we are allowed to write to the source
         if (!is_writeable && !check_flags(src.ptr(), npy_api::constants::NPY_ARRAY_WRITEABLE_))
             return false;
 
@@ -448,8 +435,7 @@ public:
                 shape_conform = props::conformable(aref, true);
                 if (!shape_conform)
                     return false; // Incompatible
-                ref = std::move(aref);
-                map.reset(new Type(const_cast<props::Scalar*>(data(ref)), shape_conform.shape));
+                map.reset(new Type(const_cast<props::Scalar*>(data(aref)), shape_conform.shape));
             }
             else
                 return false; // Incompatible?
@@ -458,9 +444,9 @@ public:
             // Copy is required, fail if `py::arg().noconvert()` flag is set.
             if (!convert) return false;
 
-            // Create a copy matching the cast tensor map, ensuring:
+            // Create a copy matching the tensor map cast, ensuring the allocation is:
             //  - Memory continous (of row/col)
-            //  - Scalar type
+            //  - Correct scalar type
             Array src_cpy = Array::ensure(src);
             if (!src_cpy)
                 return false;

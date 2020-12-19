@@ -6,6 +6,9 @@ cmake_minimum_required (VERSION 3.8)
 add_subdirectory ("pybind11")
 pybind11_add_module(pybind11_tensor_test "")
 
+# Preprocessor defines
+target_compile_options(pybind11_tensor_test PRIVATE -O2)
+
 # Header libs
 target_include_directories(pybind11_tensor_test PRIVATE "../include/")
 target_include_directories(pybind11_tensor_test PRIVATE ${EigenPath})
