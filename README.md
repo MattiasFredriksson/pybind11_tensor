@@ -1,5 +1,5 @@
 # pybind11_tensor
-Simple header-only library for exposing Eigen::Tensors to python within C++ pybind11 modules. Implementation is similar to the Eigen::Matrix type_casters available in the pybind11 distribution but handles tensor Map and Ref differently.
+Simple header-only library for exposing Eigen::Tensors to python within C++ pybind11 modules. Implementation is similar to the Eigen::Matrix type_casters available in the pybind11 distribution but handles tensor Map and Ref differently. The type_caster implementations are available in the header in the include/ directory. 
 
 # Alpha version
 
@@ -17,7 +17,7 @@ Specifics of how TensorRef arguments are converted when passed between Python an
 
 ### Python -> C++
 
-Attempts to pass the argument without copying the underlying buffer by mapping it using a TensorMap slice. If mapping the buffer is not possible, the data will be copied and converted to match the input argument unless copying is explictly dissallowed. Thus, TensorRef arguments allow both numpy slices and numpy arrays with mismatching scalar types to be passed from python and provides the most general option when copying is not prefered. Since the underlying buffer can be directly accessed from the C++ function, using the input argument type: const Eigen::TensorRef<const Tensor>>& is advisable unless other behaviors are specifically prefered.
+Attempts to pass the argument without copying the underlying buffer by mapping it using a TensorMap slice. If mapping the buffer is not possible, the data will be copied and converted to match the input argument unless copying is explictly dissallowed. Thus, TensorRef arguments allow both numpy slices and numpy arrays with mismatching scalar types to be passed from python and provides the most general option when copying is not prefered. Since the underlying buffer can be directly accessed from the C++ function, using the input argument type: const Eigen::TensorRef<const Tensor<>>>& is advisable unless other behaviors are specifically prefered.
 
 ### C++ -> Python
 
