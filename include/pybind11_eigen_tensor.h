@@ -381,14 +381,15 @@ private:
     // Callback using the destructor to update any changes done to the copy
     // back to the original data source.
     struct UpdateCallback {
+        bool update;
         array src_ref;      // Write buffer (original data source, needs to be updated).
         Array src_copy;     // Read buffer  (presumably changed during function call).
 
         UpdateCallback()
-            : src_ref(), src_copy() {}
+            : update(false), src_ref(), src_copy() {}
 
         ~UpdateCallback() {
-            if (src_ref.size() <= 0)
+            if (update)
                 return;
 
             // Update source buffer
@@ -418,7 +419,7 @@ public:
         // No support for row major (c_style) tensors
         if (check_flags(src.ptr(), array::f_style))
             return false;
-        // Verify we are allowed to write to the source
+        // Verify we are allowed to write to the source buffer
         if (!is_writeable && !check_flags(src.ptr(), npy_api::constants::NPY_ARRAY_WRITEABLE_))
             return false;
 
@@ -451,10 +452,10 @@ public:
             if (!src_cpy)
                 return false;
 
-            // Create a copy
+            // Get the shape
             shape_conform = props::conformable(src_cpy, true);
             if (!shape_conform)
-                return false; // Incompatible
+                return false; // Incompatible, should not occur
 
             // Create a TensorMapping
             map.reset(new Type(src_cpy.mutable_data(), shape_conform.shape));
@@ -462,6 +463,8 @@ public:
             callback.src_ref = reinterpret_borrow<array>(src);
             callback.src_copy = std::move(src_cpy);
             loader_life_support::add_patient(callback.src_copy);
+            // Only run update the source buffer if the expecting changes to the copied buffer.
+            callback.update = is_writeable;
         }
 
 #ifdef DEBUG_OUT
