@@ -38,3 +38,7 @@ Attempts to pass the argument without copying the underlying buffer by mapping i
 ### C++ -> Python
 
 Under the define PYBIND11_ET_STRICT the intended behavior is to not allow conversion of TensorMap to numpy arrays. Other options are not implemented, intention is to allow return of the original buffer or a Tensor buffer managed on the C++ side.
+
+## Eigen::Tensor
+
+Currently not implemented, use TensorRef instead.
