@@ -372,7 +372,7 @@ private:
     using TShape = TensorShape<props::rank, props::row_major>;
 
     static constexpr bool is_writeable = is_eigen_mutable_tensor<TensorType>::value;
-    static constexpr bool array_flags =
+    static constexpr int array_flags =
         (props::row_major ? array::c_style : array::f_style) |              // Memory continous (row/col) 
         (is_writeable ? npy_api::constants::NPY_ARRAY_WRITEABLE_ : false);  // Write flag
 
