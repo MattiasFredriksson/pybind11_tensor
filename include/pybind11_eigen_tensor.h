@@ -66,7 +66,7 @@ struct check_if_eigen_tensor { static constexpr bool value = false; };
 template <typename T>   // Specialization verifying if the EigenTensorIdentifier expression is valid
 struct check_if_eigen_tensor<T, EigenTensorIdentifier<T>> { static constexpr bool value = std::is_same<typename eigen_nested_type<T>::type, T>::value; };
 
-// True if type T is an Eigen::Tensor (accepts any Type)
+// True if type T is an Eigen::Tensor (accepts any T e.g. int/float/Tensor..)
 template <typename T>
 constexpr bool is_eigen_tensor = check_if_eigen_tensor<T>::value;
 // True if type T inherits from TensorBase (accepts any Type)
@@ -175,11 +175,11 @@ public:
         return TensorShape<rank, row_major>(shape, stride);
     }
 
-    // Reconstructs the full shape (except dimension of the last rank) from the byte strided shape.
+    // Reconstructs the mem-continous shape (except dimension of the last rank) from the byte stride and non-continous (strided) shape.
     template<bool row_major, typename DataT, typename ShapeT>
     static void reconstruct_byte_shape(const DataT* view_shape, const DataT* byte_stride, ShapeT* shape, ShapeT* stride, size_t ndim, size_t item_byte_size) {
         constexpr int incr = row_major ? -1 : 1;
-        constexpr int limit = row_major ? -1 : (int)ndim;
+        int limit = row_major ? -1 : (int)ndim;
         int offset = row_major ? (int)ndim - 1 : 0;
 
         // Base case
@@ -305,8 +305,6 @@ struct EigenTensorProps {
 #pragma endregion
 
 
-template <typename props, typename Type>
-handle eigen_encapsulate_tensor(Type* src);
 // Casts an Eigen tensor type to numpy array.  If given a base, the numpy array references the src data,
 // otherwise it'll make a copy.  writeable lets you turn off the writeable flag for the array.
 template <typename props> handle eigen_tensor_array_cast(typename props::Type const& src, handle base = handle(), bool writeable = true) {
@@ -327,19 +325,128 @@ template <typename props, typename Type>
 handle eigen_ref_array_tensor(Type& src, handle parent = none()) {
     // none here is to get past array's should-we-copy detection, which currently always
     // copies when there is no base.  Setting the base to None should be harmless.
-    return eigen_tensor_array_cast<props>(src, parent, !std::is_const<Type>::value);
+    return eigen_tensor_array_cast<props>(src, parent, is_eigen_mutable_tensor<Type>::value);
 }
 
-// Takes a pointer to some dense, plain Eigen type, builds a capsule around it, then returns a numpy
-// array that references the encapsulated data with a python-side reference to the capsule to tie
-// its destruction to that of any dependent python objects.  Const-ness is determined by whether or
-// not the Type of the pointer given is const.
+// Takes a pointer to some dense, plain Eigen type, and returns a numpy array referring to the data.
+// The encapsulation takes (assumes) ownership of the data ptr using a python-side reference,
+// tying the destruction of the data ptr to that of the python array.
 template <typename props, typename Type>
 handle eigen_encapsulate_tensor(Type* src) {
     capsule base(src, [](void* o) { delete static_cast<Type*>(o); });
     return eigen_ref_array_tensor<props>(*src, base);
 }
 
+
+// Type caster for regular, dense tensor types
+template<typename TensorType>
+struct type_caster<
+    TensorType, 
+    enable_if_t<is_eigen_tensor<TensorType>>> {
+
+    using props = EigenTensorProps<TensorType>;
+    using Scalar = typename props::Scalar;
+    using TShape = TensorShape<props::rank, props::row_major>;
+
+
+    bool load(handle src, bool convert) {
+        // If we're in no-convert mode, only load if given an array of the correct type
+        if (!convert && !isinstance<array_t<Scalar>>(src))
+            return false;
+
+        // Coerce into an array, but don't do type conversion yet; the copy below handles it.
+        auto buf = array::ensure(src);
+
+        if (!buf)
+            return false;
+
+        auto fits = props::conformable(buf, false);
+        if (!fits)
+            return false;
+
+        // Allocate the new type, then build a numpy reference into it
+        value = TensorType(fits.shape_reduced());
+        auto ref = reinterpret_steal<array>(eigen_ref_array_tensor<props>(value));
+
+        int result = detail::npy_api::get().PyArray_CopyInto_(ref.ptr(), buf.ptr());
+
+        if (result < 0) { // Copy failed!
+            PyErr_Clear();
+            return false;
+        }
+
+        return true;
+    }
+
+private:
+
+    // Cast implementation
+    template <typename CType>
+    static handle cast_impl(CType* src, return_value_policy policy, handle parent) {
+        switch (policy) {
+        case return_value_policy::take_ownership:
+        case return_value_policy::automatic:
+            return eigen_encapsulate_tensor<props>(src);
+        case return_value_policy::move:
+            return eigen_encapsulate_tensor<props>(new CType(std::move(*src)));
+        case return_value_policy::copy:
+            return eigen_tensor_array_cast<props>(*src);
+        case return_value_policy::reference:
+        case return_value_policy::automatic_reference:
+            return eigen_ref_array_tensor<props>(*src);
+        case return_value_policy::reference_internal:
+            return eigen_ref_array_tensor<props>(*src, parent);
+        default:
+            throw cast_error("unhandled return_value_policy: should not happen!");
+        };
+    }
+
+public:
+
+    // Normal returned non-reference, non-const value:
+    static handle cast(TensorType&& src, return_value_policy /* policy */, handle parent) {
+        return cast_impl(&src, return_value_policy::move, parent);
+    }
+    // If you return a non-reference const, we mark the numpy array readonly:
+    static handle cast(const TensorType&& src, return_value_policy /* policy */, handle parent) {
+        return cast_impl(&src, return_value_policy::move, parent);
+    }
+    // lvalue reference return; default (automatic) becomes copy
+    static handle cast(TensorType& src, return_value_policy policy, handle parent) {
+        if (policy == return_value_policy::automatic || policy == return_value_policy::automatic_reference)
+            policy = return_value_policy::copy;
+        return cast_impl(&src, policy, parent);
+    }
+    // const lvalue reference return; default (automatic) becomes copy
+    static handle cast(const TensorType& src, return_value_policy policy, handle parent) {
+        if (policy == return_value_policy::automatic || policy == return_value_policy::automatic_reference)
+            policy = return_value_policy::copy;
+        return cast(&src, policy, parent);
+    }
+    // non-const pointer return
+    static handle cast(TensorType* src, return_value_policy policy, handle parent) {
+        return cast_impl(src, policy, parent);
+    }
+    // const pointer return
+    static handle cast(const TensorType* src, return_value_policy policy, handle parent) {
+        return cast_impl(src, policy, parent);
+    }
+
+    static constexpr auto name = props::descriptor;
+
+    operator TensorType* () { return &value; }
+    operator TensorType& () { return value; }
+    operator TensorType && ()&& { return std::move(value); }
+    template <typename T> using cast_op_type = movable_cast_op_type<T>;
+
+private:
+    TensorType value;
+};
+
+template type_caster<Eigen::Tensor<float, 3>>;
+
+/* Deprecated: Old but good
+// Strided buf copy
 template <int ndim, typename ScalarR, typename ScalarW, typename Shape>
 static void copy_buf_row(ScalarR* rbuf, ScalarW* wbuf, const Shape& cshape, const Shape& rcstride, const Shape& wcstride, size_t dim) {
     if (dim == ndim - 1) {
@@ -357,6 +464,7 @@ static void copy_buf_row(ScalarR* rbuf, ScalarW* wbuf, const Shape& cshape, cons
         }
     }
 }
+*/
 
 // TensorMap<...> type_caster.
 template <typename TensorType>
@@ -373,8 +481,8 @@ private:
 
     static constexpr bool is_writeable = is_eigen_mutable_tensor<TensorType>::value;
     static constexpr int array_flags =
-        (props::row_major ? array::c_style : array::f_style) |              // Memory continous (row/col) 
-        (is_writeable ? npy_api::constants::NPY_ARRAY_WRITEABLE_ : false);  // Write flag
+        (props::row_major ? array::c_style : array::f_style) |          // Memory continous (row/col) 
+        (is_writeable ? npy_api::constants::NPY_ARRAY_WRITEABLE_ : 0);  // Write flag
 
     using Array = array_t<Scalar, array_flags>;
 
@@ -389,8 +497,14 @@ private:
             : update(false), src_ref(), src_copy() {}
 
         ~UpdateCallback() {
-            if (update)
+            // Not 100% sure how safe utilizing the destruction of the tensor_caster as a callback but seems to work...
+            if (!update)
                 return;
+            int result = detail::npy_api::get().PyArray_CopyInto_(src_ref.ptr(), src_copy.ptr());
+            // if (result < 0) // Copy failed! Sound the alarm ._.
+
+
+            /* Deprecated: Old but good
 
             // Update source buffer
             py::buffer_info src = src_ref.request(true);
@@ -403,6 +517,7 @@ private:
             Scalar* wbuf = reinterpret_cast<Scalar*>(src_ref.mutable_data());
 
             copy_buf_row<props::rank>(rbuf, wbuf, rshape.shape, rshape.stride, wshape.stride, 0);
+            */
         }
     };
 
@@ -420,7 +535,7 @@ public:
         if (check_flags(src.ptr(), array::f_style))
             return false;
         // Verify we are allowed to write to the source buffer
-        if (!is_writeable && !check_flags(src.ptr(), npy_api::constants::NPY_ARRAY_WRITEABLE_))
+        if (!(is_writeable || check_flags(src.ptr(), npy_api::constants::NPY_ARRAY_WRITEABLE_)))
             return false;
 
         // c_style & f_style flags only represent continous row/col major arrays.
@@ -477,45 +592,51 @@ public:
         return true;
     }
 
-    static handle cast_impl(const Type* src, return_value_policy policy, handle parent) {
+    static handle cast_impl(Type* src, return_value_policy policy, handle parent) {
 
-#ifndef PYBIND11_ET_STRICT
+#ifdef PYBIND11_ET_STRICT
         static_assert(false, "exposing an Eigen::TensorMap to python is disallowed under PYBIND11_ET_STRICT rules.");
 #endif
-        static_assert(false, "exposing an Eigen::TensorMap to python is not implemented.");
+
+        switch (policy) {
+        case return_value_policy::automatic:
+        case return_value_policy::automatic_reference:
+        case return_value_policy::reference_internal:
+            // 'default' behavior is to return a reference to the original input, this can be unintuitive since it doesn't signal updates to the original buffer (but can be a prefered design).
+            return eigen_ref_array_tensor<props>(*src, parent);
+        case return_value_policy::copy:
+            // In principle unecessary, better to return a rhand reference to a dense tensor? But can be allowed under non-strict rules.
+            return eigen_tensor_array_cast<props>(*src, handle(), is_eigen_mutable_tensor<Type>::value);
+#ifdef PYBIND11_ET_PERMISSIVE
+        case return_value_policy::reference:
+            return eigen_ref_array_tensor<props>(*src);
+        case return_value_policy::take_ownership:
+            eigen_encapsulate_tensor<props>(src);
+#endif
+            //case return_value_policy::move:
+        default:
+            // move don't make any sense for a ref/map:
+            pybind11_fail("Invalid return_value_policy for Eigen Map/Ref/Block type");
+        }
     }
 
 #pragma region cast implementations
-    // non-reference, non-const type:
+    // non-reference;
     static handle cast(Type&& src, return_value_policy policy, handle parent) {
         return cast_impl(&src, policy, parent);
     }
-    // non-reference, non-const type:
-    static handle cast(const Type&& src, return_value_policy policy, handle parent) {
+    // lvalue reference return;
+    static handle cast(Type& src, return_value_policy policy, handle parent) {
         return cast_impl(&src, policy, parent);
     }
     // const pointer return; disallowed return type with STRICT defined
-    static handle cast(const Type* src, return_value_policy policy, handle parent) {
-#ifdef PYBIND11_ET_STRICT
-        static_assert(false, "exposing a pointer of Eigen::TensorMap to python is disallowed under PYBIND11_ET_STRICT compilation rules.");
-#else
-        return cast_impl(src, policy, parent);
-#endif
-    }
-    // non-const pointer return
     static handle cast(Type* src, return_value_policy policy, handle parent) {
-        return cast(const_cast<const Type*>(src), policy, parent);
-    }
-    // lvalue reference return; disallowed return type without PERMISSIVE defined
-    static handle cast(const Type& src, return_value_policy policy, handle parent) {
-#ifdef PYBIND11_ET_PERMISSIVE
-        return cast_impl(src, policy, parent);
+#ifndef PYBIND11_ET_PERMISSIVE
+        static_assert(false, "exposing a pointer of Eigen::TensorMap to python is disallowed without defining the PYBIND11_ET_PERMISSIVE compilation rule.");
 #else
-        static_assert(false, "exposing an lvalue reference of Eigen::TensorMap to python is disallowed.");
+        // Always give ownership to python, if not the preferred behavior pass the data as a reference instead.
+        return cast_impl(src, return_value_policy::take_ownership, parent);
 #endif
-    }
-    static handle cast(Type& src, return_value_policy policy, handle parent) {
-        return cast(const_cast<const Type&>(src), policy, parent);
     }
 #pragma endregion
 
@@ -580,7 +701,7 @@ public:
                 copy_or_ref = std::move(aref);
             }
             else
-                return false; // Incompatible?
+                return false; // Incompatible? This check should preferably be unreachable
         }
         else {
             // Copy is required, fail if `py::arg().noconvert()` flag is set or writeable is required.
@@ -616,7 +737,7 @@ public:
         return true;
     }
 
-    /* Under strict rules always return an evaluated copy of the tensor reffered to.
+    /* Under strict rules always return an evaluated copy of the tensor referred to.
     *  Under more permissive rules other return types are allowed under the
     *   assumption that the implementer understand the consequences (see eigen matrix impl.).
     *  If the tensor argument is a tensor expression, 
@@ -632,11 +753,13 @@ public:
 
         switch (policy) {
         case return_value_policy::reference_internal:
+            // If strict: always return a copy
 #ifndef PYBIND11_ET_STRICT
             return eigen_tensor_array_cast<props>(*src, parent, is_eigen_mutable_tensor<Type>::value);
 #endif
         case return_value_policy::reference:
         case return_value_policy::automatic_reference:
+            // If strict: always return a copy
 #ifndef PYBIND11_ET_STRICT
             return eigen_tensor_array_cast<props>(*src, none(), is_eigen_mutable_tensor<Type>::value);
 #endif
@@ -644,9 +767,8 @@ public:
         case return_value_policy::automatic:
         default:
         {
-            // Create a new dense tensor copy to pass to python.
-            TensorType* out = new TensorType();
-            *out = *src; // evaluate/copy
+            // Evaluate as a dense tensor to pass to python (either to copy or evaluate a tensor statement).
+            TensorType* out = new TensorType(*src);
             return eigen_encapsulate_tensor<EigenTensorProps<TensorType>>(out);
         }
         }
@@ -658,32 +780,21 @@ public:
     static handle cast(Type&& src, return_value_policy policy, handle parent) {
         return cast_impl(&src, policy, parent);
     }
-    // non-reference, non-const type:
-    static handle cast(const Type&& src, return_value_policy policy, handle parent) {
-        return cast_impl(&src, policy, parent);
-    }
-    // const pointer return; disallowed return type with STRICT defined
-    static handle cast(const Type* src, return_value_policy policy, handle parent) {
+    // non-const pointer return
+    static handle cast(Type* src, return_value_policy policy, handle parent) {
 #ifdef PYBIND11_ET_STRICT
-        static_assert(false, "exposing a pointer of Eigen::TensorRef to python is disallowed under PYBIND11_ET_STRICT compilation rules.");
+        static_assert(false, "Exposing a pointer of Eigen::TensorRef to python is disallowed under PYBIND11_ET_STRICT compilation rules.");
 #else
         return cast_impl(src, policy, parent);
 #endif
     }
-    // non-const pointer return
-    static handle cast(Type* src, return_value_policy policy, handle parent) {
-        return cast(const_cast<const Type*>(src), policy, parent);
-    }
     // lvalue reference return; disallowed return type without PERMISSIVE defined
-    static handle cast(const Type& src, return_value_policy policy, handle parent) {
+    static handle cast(Type& src, return_value_policy policy, handle parent) {
 #ifdef PYBIND11_ET_PERMISSIVE
         return cast_impl(src, policy, parent);
 #else
-        static_assert(false, "exposing an lvalue reference of Eigen::TensorRef to python is disallowed.");
+        static_assert(false, "Exposing an lvalue reference of Eigen::TensorRef to python is disallowed.");
 #endif
-    }
-    static handle cast(Type& src, return_value_policy policy, handle parent) {
-        return cast(const_cast<const Type&>(src), policy, parent);
     }
 
 #pragma endregion
