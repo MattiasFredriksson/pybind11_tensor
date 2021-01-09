@@ -66,12 +66,12 @@ struct check_if_eigen_tensor { static constexpr bool value = false; };
 template <typename T>   // Specialization verifying if the EigenTensorIdentifier expression is valid
 struct check_if_eigen_tensor<T, EigenTensorIdentifier<T>> { static constexpr bool value = std::is_same<typename eigen_nested_type<T>::type, T>::value; };
 
-// True if type T is an Eigen::Tensor (accepts any T e.g. int/float/Tensor..)
-template <typename T>
-constexpr bool is_eigen_tensor = check_if_eigen_tensor<T>::value;
-// True if type T inherits from TensorBase (accepts any Type)
+// True if type T inherits from TensorBase (accepts any T e.g. int/float/Tensor..)
 template <typename T>
 constexpr bool is_any_eigen_tensor = check_if_tensor_base<T>::value;
+// True if type T is a dense tensor of type Eigen::Tensor (accepts any T e.g. int/float/Tensor..)
+template <typename T>
+constexpr bool is_eigen_tensor = is_any_eigen_tensor<T> && check_if_eigen_tensor<T>::value;
 
 
 
@@ -407,28 +407,14 @@ public:
     static handle cast(TensorType&& src, return_value_policy /* policy */, handle parent) {
         return cast_impl(&src, return_value_policy::move, parent);
     }
-    // If you return a non-reference const, we mark the numpy array readonly:
-    static handle cast(const TensorType&& src, return_value_policy /* policy */, handle parent) {
-        return cast_impl(&src, return_value_policy::move, parent);
-    }
     // lvalue reference return; default (automatic) becomes copy
     static handle cast(TensorType& src, return_value_policy policy, handle parent) {
         if (policy == return_value_policy::automatic || policy == return_value_policy::automatic_reference)
             policy = return_value_policy::copy;
         return cast_impl(&src, policy, parent);
     }
-    // const lvalue reference return; default (automatic) becomes copy
-    static handle cast(const TensorType& src, return_value_policy policy, handle parent) {
-        if (policy == return_value_policy::automatic || policy == return_value_policy::automatic_reference)
-            policy = return_value_policy::copy;
-        return cast(&src, policy, parent);
-    }
-    // non-const pointer return
+    // pointer return
     static handle cast(TensorType* src, return_value_policy policy, handle parent) {
-        return cast_impl(src, policy, parent);
-    }
-    // const pointer return
-    static handle cast(const TensorType* src, return_value_policy policy, handle parent) {
         return cast_impl(src, policy, parent);
     }
 
@@ -604,18 +590,17 @@ public:
         case return_value_policy::reference_internal:
             // 'default' behavior is to return a reference to the original input, this can be unintuitive since it doesn't signal updates to the original buffer (but can be a prefered design).
             return eigen_ref_array_tensor<props>(*src, parent);
-        case return_value_policy::copy:
-            // In principle unecessary, better to return a rhand reference to a dense tensor? But can be allowed under non-strict rules.
-            return eigen_tensor_array_cast<props>(*src, handle(), is_eigen_mutable_tensor<Type>::value);
-#ifdef PYBIND11_ET_PERMISSIVE
         case return_value_policy::reference:
+#ifndef PYBIND11_ET_STRICT
+            // If strict return a copy, otherwise return a reference owned on c++ side.
             return eigen_ref_array_tensor<props>(*src);
-        case return_value_policy::take_ownership:
-            eigen_encapsulate_tensor<props>(src);
 #endif
+        case return_value_policy::copy:
+            return eigen_tensor_array_cast<props>(*src);
+            //case return_value_policy::take_ownership:
             //case return_value_policy::move:
         default:
-            // move don't make any sense for a ref/map:
+            // move don't make any sense for a map:
             pybind11_fail("Invalid return_value_policy for Eigen Map/Ref/Block type");
         }
     }
@@ -625,18 +610,17 @@ public:
     static handle cast(Type&& src, return_value_policy policy, handle parent) {
         return cast_impl(&src, policy, parent);
     }
-    // lvalue reference return;
+    // lvalue reference return; always returns a reference to a 
     static handle cast(Type& src, return_value_policy policy, handle parent) {
-        return cast_impl(&src, policy, parent);
-    }
-    // const pointer return; disallowed return type with STRICT defined
-    static handle cast(Type* src, return_value_policy policy, handle parent) {
-#ifndef PYBIND11_ET_PERMISSIVE
-        static_assert(false, "exposing a pointer of Eigen::TensorMap to python is disallowed without defining the PYBIND11_ET_PERMISSIVE compilation rule.");
+#ifdef PYBIND11_ET_STRICT
+        static_assert(false, "exposing a Eigen::TensorMap as a lvalue is not allowed under PYBIND11_ET_STRICT compilation rule.");
 #else
-        // Always give ownership to python, if not the preferred behavior pass the data as a reference instead.
-        return cast_impl(src, return_value_policy::take_ownership, parent);
+        return cast_impl(src, return_value_policy::reference, parent);
 #endif
+    }
+    // const pointer return; always give ownership to python (return a reference if behavior is unwanted).
+    static handle cast(Type* src, return_value_policy policy, handle parent) {
+        static_assert(false, "exposing a Eigen::TensorMap as a pointer is not allowed.");
     }
 #pragma endregion
 
@@ -755,13 +739,13 @@ public:
         case return_value_policy::reference_internal:
             // If strict: always return a copy
 #ifndef PYBIND11_ET_STRICT
-            return eigen_tensor_array_cast<props>(*src, parent, is_eigen_mutable_tensor<Type>::value);
+            return eigen_ref_array_tensor<props>(*src, parent);
 #endif
         case return_value_policy::reference:
         case return_value_policy::automatic_reference:
             // If strict: always return a copy
 #ifndef PYBIND11_ET_STRICT
-            return eigen_tensor_array_cast<props>(*src, none(), is_eigen_mutable_tensor<Type>::value);
+            return eigen_ref_array_tensor<props>(*src);
 #endif
         case return_value_policy::copy:
         case return_value_policy::automatic:
@@ -782,19 +766,11 @@ public:
     }
     // non-const pointer return
     static handle cast(Type* src, return_value_policy policy, handle parent) {
-#ifdef PYBIND11_ET_STRICT
-        static_assert(false, "Exposing a pointer of Eigen::TensorRef to python is disallowed under PYBIND11_ET_STRICT compilation rules.");
-#else
-        return cast_impl(src, policy, parent);
-#endif
+        static_assert(false, "Exposing a pointer of Eigen::TensorRef to python is disallowed.");
     }
-    // lvalue reference return; disallowed return type without PERMISSIVE defined
+    // lvalue reference return;
     static handle cast(Type& src, return_value_policy policy, handle parent) {
-#ifdef PYBIND11_ET_PERMISSIVE
-        return cast_impl(src, policy, parent);
-#else
-        static_assert(false, "Exposing an lvalue reference of Eigen::TensorRef to python is disallowed.");
-#endif
+        static_assert(false, "Exposing a lvalue of Eigen::TensorRef to python is disallowed.");
     }
 
 #pragma endregion

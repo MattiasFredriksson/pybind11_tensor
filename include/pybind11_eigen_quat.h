@@ -80,7 +80,9 @@ public:
 
 
 };
+#ifdef DEBUG
 template struct type_caster<Eigen::Quaternion<float, 0>>;
 template struct type_caster<Eigen::Quaternion<double, 0>>;
+#endif
 PYBIND11_NAMESPACE_END(detail)
 PYBIND11_NAMESPACE_END(PYBIND11_NAMESPACE)

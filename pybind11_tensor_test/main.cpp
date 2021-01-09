@@ -10,11 +10,11 @@ namespace pyd = pybind11::detail;
 
 
 template<typename FP>
-void print_const(const Eigen::TensorRef<const Eigen::Tensor<FP, 3, 1>>& tensor) {
+void print_const(const Eigen::TensorRef<const Eigen::Tensor<FP, 3, 1>> tensor) {
     std::cout << tensor << std::endl;
 }
 template<typename FP>
-void print_nonconst(Eigen::TensorRef<Eigen::Tensor<FP, 3, 1>>& tensor) {
+void print_nonconst(Eigen::TensorRef<Eigen::Tensor<FP, 3, 1>> tensor) {
     std::cout << tensor << std::endl;
 }
 
@@ -24,7 +24,7 @@ Eigen::Tensor<FP, 3, 1> add_self(Eigen::Tensor<FP, 3, 1> tensor) {
 }
 
 template<typename FP>
-Eigen::TensorRef<Eigen::Tensor<FP, 3, 1>> add_self_ref(Eigen::TensorRef< Eigen::Tensor<FP, 3, 1>>& tensor) {
+Eigen::TensorRef<Eigen::Tensor<FP, 3, 1>> add_self_ref(Eigen::TensorRef< Eigen::Tensor<FP, 3, 1>> tensor) {
     // Return tensor evaluated tensor packed in ref argument
     tensor = Eigen::TensorRef<Eigen::Tensor<FP, 3, 1>>(Eigen::Tensor<FP, 3, 1>(tensor + tensor));
     auto c(tensor);
@@ -63,8 +63,9 @@ void add_self_map(Eigen::TensorMap<Eigen::Tensor<FP, 3, 1>>& tensor) {
 }
 
 template<typename FP>
-Eigen::TensorMap<Eigen::Tensor<FP, 3, 1>>& add_self_map_ret(Eigen::TensorMap<Eigen::Tensor<FP, 3, 1>>& tensor) {
+Eigen::TensorMap<Eigen::Tensor<FP, 3, 1>> add_self_map_ret(Eigen::TensorMap<Eigen::Tensor<FP, 3, 1>>& tensor) {
     tensor = tensor + tensor;
+
     return tensor;
 }
 
