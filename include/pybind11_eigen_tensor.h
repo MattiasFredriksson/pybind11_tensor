@@ -95,7 +95,7 @@ template <typename T> using is_eigen_tensor_map = any_of <
 
 template <int rank, bool row_major> struct TensorShape {
 public:
-    using EigenArray = Eigen::array<EigenIndex, rank>;
+    typedef Eigen::array<EigenIndex, rank> EigenArray;
     static constexpr EigenIndex
         dims = rank;
 
@@ -655,6 +655,7 @@ private:
     static constexpr bool need_writeable = is_eigen_mutable_tensor<Type>::value;
 
     using Array = array_t<Scalar>;
+    using Conformable = ShapeConformable<props::rank, props::row_major>;
 
     // Delay construction (no default constructor)
     std::unique_ptr<MapType> map;
@@ -673,7 +674,7 @@ public:
         if (need_writeable && !check_flags(src.ptr(), npy_api::constants::NPY_ARRAY_WRITEABLE_))
             return false;   // Need writeable arg.
 
-        ShapeConformable<props::rank, props::row_major> conform;
+        Conformable conform;
         if (!scalar_type_mismatch) {
             // We don't need a converting copy, but we need to ensure it conforms.
             auto aref = reinterpret_borrow<Array>(src);
@@ -715,8 +716,9 @@ public:
         if (conform.mem_continous()) {
             ref.reset(new Type(*map));
         }
-        else
+        else {
             ref.reset(new Type(map->stride(conform.stride)));
+        }
 
         return true;
     }
