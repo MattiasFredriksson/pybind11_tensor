@@ -256,9 +256,9 @@ template <int rank, bool EigenRowMajor> struct ShapeConformable
     bool conformable = false;
 
     ShapeConformable(bool isconformable = false) 
-        : TensorShape(), conformable(isconformable) {}
-    ShapeConformable(bool conformable, TensorShape shape)
-        : TensorShape(shape), conformable(conformable) {}
+        : TensorShape<rank, EigenRowMajor>(), conformable(isconformable) {}
+    ShapeConformable(bool conformable, TensorShape<rank, EigenRowMajor> shape)
+        : TensorShape<rank, EigenRowMajor>(shape), conformable(conformable) {}
 
     operator bool() const { return conformable; }
 };
@@ -537,7 +537,7 @@ public:
                 shape_conform = props::conformable(aref, true);
                 if (!shape_conform)
                     return false; // Incompatible
-                map.reset(new Type(const_cast<props::Scalar*>(data(aref)), shape_conform.shape));
+                map.reset(new Type(const_cast<typename props::Scalar*>(data(aref)), shape_conform.shape));
             }
             else
                 return false; // Incompatible?
@@ -711,7 +711,7 @@ public:
 
         // Map the python data, cast away the const classifier to map it to a non-const ref internally.
         ref.reset();
-        map.reset(new MapType(const_cast<props::Scalar*>(data(copy_or_ref)), conform.shape));
+        map.reset(new MapType(const_cast<typename props::Scalar*>(data(copy_or_ref)), conform.shape));
 
         if (conform.mem_continous()) {
             ref.reset(new Type(*map));

@@ -20,7 +20,25 @@ void print_nonconst(Eigen::TensorRef<Eigen::Tensor<FP, 3, 1>> tensor) {
 
 template<typename FP>
 Eigen::Tensor<FP, 3, 1> add_self(Eigen::Tensor<FP, 3, 1> tensor) {
-    return tensor + tensor;
+    auto ptr = tensor.data();
+    Eigen::Tensor<FP, 3, 1> t(std::move(tensor));
+    if (t.data() == ptr)
+        std::cout << "Tensor moved\n";
+    else
+        std::cout << "Tensor copied\n";
+
+
+    Eigen::Matrix<float, 12, 12> a;
+    a.setRandom();
+    float* ptrm = a.data();
+
+    Eigen::Matrix<float, 12, 12> b(std::move(a));
+    if (b.data() == ptrm)
+        std::cout << "Matrix moved\n";
+    else
+        std::cout << "Matrix copied\n";
+
+    return t + t;
 }
 
 template<typename FP>
