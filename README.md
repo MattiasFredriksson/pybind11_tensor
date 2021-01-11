@@ -9,11 +9,16 @@ The supplied code is a poorly tested alpha version, but it should provide a simp
 
 ## Eigen::Tensor
 
-Intended behavior is to be identical to the dense matrix type_caster. Implementation is based on the dense matrix type_caster distributed with the pybind11 release version 2.6.1. Passing an Eigen::Tensor to C++ side ensure the data buffer is copied, passing tensor arguments to python is flexible and depend on the return_value_policy argument specified for the function binding. To pass a dense tensor back to python without copying requires a pointer argument with return_value_policy::take_ownership to avoid an implicit copy. Options such as rvalues with move is only valid once move operators is properly supported in the eigen library. Behavior then can be assumed to follow the pattern of:
+Intended behavior is to be identical to the dense matrix type_caster. Implementation is based on the dense matrix type_caster distributed with the pybind11 release version 2.6.1. Passing an Eigen::Tensor to C++ side ensure the data buffer is copied, passing tensor arguments to python is flexible and depend on the return_value_policy argument specified for the function binding. 
+To pass a dense tensor back to python without copying requires a pointer argument with return_value_policy::take_ownership to avoid an implicit copy. Options such as rvalues with move is only valid once move operators is properly supported in the eigen library. Behavior then can be assumed to follow the pattern of:
 
 **Python** -> **Copy** -> **C++** -> **(Copy)** -> **Python**
 
 Passing dense tensor arguments provide clear separations between Python and C++ but the behavior may not always be preferable. Some options such as to avoid copying the data buffer when passing arguments from Python to C++ is then to use TensorMap<> or TensorRef<> arguments.
+
+## Eigen::Quaternion
+
+Type caster for Eigen::Quaternion is available in pybind11_eigen_quat.h.
 
 ## Eigen::TensorMap
 
@@ -29,7 +34,7 @@ Attempts to pass the argument without copying the underlying buffer by mapping i
 
 ### C++ -> Python
 
-Under the define PYBIND11_ET_STRICT the intended behavior is to not allow conversion of TensorMap to numpy arrays. Other options are not implemented, intention is to allow return of the original buffer or a Tensor buffer managed on the C++ side.
+Default behavior is to return an internal reference to the mapped buffer. Under the define PYBIND11_ET_STRICT conversion of TensorMap to numpy arrays is disallowed.
 
 ## Eigen::TensorRef
 
