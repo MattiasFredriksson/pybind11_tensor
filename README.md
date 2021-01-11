@@ -50,5 +50,5 @@ Attempts to pass the argument without copying the underlying buffer by mapping i
 
 ### C++ -> Python
 
-Preferable behavior when returning TensorRef arguments to the Python side is to copy the underlying buffer rather then attempt to wrap it in a numpy array object. While not dissalowing to return a direct reference to the buffer unless PYBIND11_ET_STRICT is defined, unless a copy is made, the type_caster does not attempt to ensure the data sticks around once the argument is returned back to python. The primary purpose for allowing TensorRef return arguments is then to support it as a return type similar to returning a Tensor<> but retaining the generallity of the of the TensorRef<> type.
+Preferable behavior when returning TensorRef arguments to the Python side is to copy the underlying buffer rather then attempt to wrap it in a numpy array object. While not dissalowing to return a direct reference to the buffer unless PYBIND11_ET_STRICT is defined, the type_caster does not attempt to ensure the data sticks around once the argument is returned back to python. 
 
