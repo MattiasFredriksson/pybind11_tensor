@@ -16,10 +16,6 @@ To pass a dense tensor back to python without copying requires a pointer argumen
 
 Passing dense tensor arguments provide clear separations between Python and C++ but the behavior may not always be preferable. Some options such as to avoid copying the data buffer when passing arguments from Python to C++ is then to use TensorMap<> or TensorRef<> arguments.
 
-## Eigen::Quaternion
-
-Type caster for Eigen::Quaternion is available in pybind11_eigen_quat.h.
-
 ## Eigen::TensorMap
 
 Supports binding of input arguments. The underlying idea for using the TensorMap type when the data pattern for calling a C++ function is:
@@ -52,3 +48,6 @@ Attempts to pass the argument without copying the underlying buffer by mapping i
 
 Preferable behavior when returning TensorRef arguments to the Python side is to copy the underlying buffer rather then attempt to wrap it in a numpy array object. While not dissalowing to return a direct reference to the buffer unless PYBIND11_ET_STRICT is defined, the type_caster does not attempt to ensure the data sticks around once the argument is returned back to python. 
 
+## Eigen::Quaternion
+
+Type caster for Eigen::Quaternion is available in pybind11_eigen_quat.h.
