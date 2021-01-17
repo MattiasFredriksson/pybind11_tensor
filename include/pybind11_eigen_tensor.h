@@ -480,7 +480,7 @@ private:
         Array src_copy;     // Read buffer  (presumably changed during function call).
 
         UpdateCallback()
-            : update(false), src_ref(), src_copy() {}
+            : update(false), src_ref(), src_copy() {  }
 
         ~UpdateCallback() {
             // Not 100% sure how safe utilizing the destruction of the tensor_caster as a callback but seems to work...
@@ -509,7 +509,7 @@ private:
 
     // Callback updating the input data src after python call ends.
     UpdateCallback callback;
-    // TensorMap mapping the input data either directly or the copy.
+    // TensorMap mapping the input data either directly or the copy (delay construction, no default constructor).
     std::unique_ptr<Type> map;
 
 public:
@@ -538,6 +538,7 @@ public:
                 if (!shape_conform)
                     return false; // Incompatible
                 map.reset(new Type(const_cast<typename props::Scalar*>(data(aref)), shape_conform.shape));
+                callback.src_ref = std::move(aref);
             }
             else
                 return false; // Incompatible?
@@ -574,7 +575,6 @@ public:
         std::cout << "Shape: " << shape_conform.shape << std::endl;
         std::cout << "Stride: " << shape_conform.stride << std::endl;
 #endif
-
         return true;
     }
 
