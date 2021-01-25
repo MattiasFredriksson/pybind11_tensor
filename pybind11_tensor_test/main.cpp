@@ -1,6 +1,7 @@
 ﻿// DTW_python.cpp : Defines the entry point for the application.
 //
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 #include <pybind11/eigen.h>
 
 #include "pybind11_eigen_tensor.h"
@@ -87,6 +88,48 @@ Eigen::TensorMap<Eigen::Tensor<FP, 3, 1>> add_self_map_ret(Eigen::TensorMap<Eige
     return tensor;
 }
 
+/* Adds the tensor to itself 10 times.
+*/
+template<typename FP>
+std::vector<Eigen::Tensor<FP, 3, 1>*> add_self_repeat10(Eigen::TensorMap<Eigen::Tensor<FP, 3, 1>>& tensor) {
+    std::vector<Eigen::Tensor<FP, 3, 1>*> arr(10);
+    for (int i = 0; i < 10; i++)
+        arr[i] = new Eigen::Tensor<FP, 3, 1>(tensor + tensor);
+    return arr;
+}
+
+
+template<typename FP = double>
+using MatrixNN = Eigen::Matrix<FP, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+
+/* Adds the matrix to itself 10 times.
+*/
+template<typename FP>
+std::vector<MatrixNN<FP>*> add_self_repeat10(MatrixNN<FP> matrix) {
+    std::vector<MatrixNN<FP>*> arr(10);
+    for (int i = 0; i < 10; i++)
+        arr[i] = new MatrixNN<FP>(matrix + matrix);
+    return arr;
+}
+/* Adds each matrix to itself.
+*/
+template<typename FP>
+std::vector<MatrixNN<FP>*> add_self_vector(const std::vector<MatrixNN<FP>>& matrices) {
+    std::vector<MatrixNN<FP>*> arr(matrices.size());
+    for (int i = 0; i < matrices.size(); i++)
+        arr[i] = new MatrixNN<FP>(matrices[i] + matrices[i]);
+    return arr;
+}
+/* Adds each tensor to itself.
+*/
+template<typename FP>
+std::vector<Eigen::Tensor<FP, 3, 1>*> add_self_vector(const std::vector<Eigen::TensorMap<Eigen::Tensor<FP, 3, 1>>>& tensors) {
+    std::vector<Eigen::Tensor<FP, 3, 1>*> arr(tensors.size());
+    for (int i = 0; i < tensors.size(); i++)
+        arr[i] = new Eigen::Tensor<FP, 3, 1>(tensors[i] + tensors[i]);
+    return arr;
+}
+
 PYBIND11_MODULE(pybind11_tensor_test, m) {
     m.doc() = R"pbdoc(
         Python module to implement test functions for pybind11_eigen_tensor.h
@@ -122,6 +165,22 @@ PYBIND11_MODULE(pybind11_tensor_test, m) {
     )pbdoc");
     m.def("double_ref", &double_ref<double>, R"pbdoc(
         Pass ref ref.
+    )pbdoc");
+    m.def("add_self_repeat10", py::overload_cast<Eigen::TensorMap<Eigen::Tensor<double, 3, 1>>&>(&add_self_repeat10<double>),
+        py::return_value_policy::take_ownership, R"pbdoc(
+        Add self to self 10 times.
+    )pbdoc");
+    m.def("add_self_repeat10", py::overload_cast<MatrixNN<double>>(&add_self_repeat10<double>),
+        py::return_value_policy::take_ownership, R"pbdoc(
+        Add self to self 10 times.
+    )pbdoc");
+    m.def("add_self_vector", py::overload_cast<const std::vector<Eigen::TensorMap<Eigen::Tensor<double, 3, 1>>>&>(&add_self_vector<double>),
+        py::return_value_policy::take_ownership, R"pbdoc(
+        Adds each tensor to itself.
+    )pbdoc");
+    m.def("add_self_vector", py::overload_cast<const std::vector<MatrixNN<double>>&>(&add_self_vector<double>),
+        py::return_value_policy::take_ownership, R"pbdoc(
+        Adds each matrix to itself.
     )pbdoc");
 
 
