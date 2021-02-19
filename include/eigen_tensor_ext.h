@@ -442,6 +442,24 @@ namespace tensorial {
 
 #pragma region Helpers
 
+	/*
+	*	Verify the number of dimensions within the given rank of the tensor arguments match.
+	*/
+	template <typename T0, typename T1>
+	void assert_rank_dimension(const T0& t0, const T1& t1, int rank) {
+
+		if (t0.dimension(rank) != t1.dimension(rank)) {
+			std::ostringstream buf;
+			buf << "Mismatch in dimensions within rank " << rank << " of the tensor arguments. First tensor argument was of shape: (";
+			buf << t0.dimensions() << ") and second argument of shape (" << t1.dimensions() << ").";
+			throw std::invalid_argument(buf.str());
+		}
+	}
+
+	/*	
+	*	Eigen::array operators
+	*/
+
     template <typename TIndex, int rank>
     std::ostream& operator <<(std::ostream& stream, const Eigen::array<TIndex, rank>& arr) {
         for (int i = 0; i < rank; i++)
