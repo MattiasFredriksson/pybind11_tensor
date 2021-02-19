@@ -445,7 +445,7 @@ namespace tensorial {
     template <typename TIndex, int rank>
     std::ostream& operator <<(std::ostream& stream, const Eigen::array<TIndex, rank>& arr) {
         for (int i = 0; i < rank; i++)
-            std::cout << arr[i] << ", ";
+            stream << arr[i] << ", ";
         return stream;
     }
     // Divide Eigen::array
