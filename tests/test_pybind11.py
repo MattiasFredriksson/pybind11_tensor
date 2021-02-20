@@ -9,14 +9,21 @@ import os
 import psutil
 
 
-A = np.arange(72).reshape((6, 3, 4)).astype(np.float64)
+A = 1 + np.arange(72).reshape((6, 3, 4)).astype(np.float64)
 A_c = A.copy()
 M = np.arange(10000).reshape((100, 100)).astype(np.float64)
 T = np.arange(10000).reshape((100, 10, 10)).astype(np.float64)
+
+def alloc_dummy_A(N=10):
+    for i in range(N):
+        tmp = A.copy()
+
 print(type(A))
 print(A.dtype)
 print("Writeable:\t", A.flags.writeable)
 print("C contiguous:\t", A.flags.c_contiguous)
+
+Test.check_eigen_move_operator()
 
 print('\n-------\nadd_self:')
 
@@ -73,33 +80,47 @@ assert np.allclose(B - A_c, A_c), 'add_self_map_ret failed'
 A = A_c.copy()
 print("Success")
 
+print('\n-------\nadd_self_ref:')
+
+B = Test.add_self_ref(A)
+assert np.allclose(B-A, A), 'add_self_ref failed'
+assert np.allclose(A, A_c), 'add_self_ref failed: changed A'
+print("Success")
+
+
+print('\n-------\nadd_self_ref-stride:')
+
+B = Test.add_self_ref(A[::2])
+
+assert np.allclose(B-A[::2], A[::2]), 'add_self_ref-stride failed'
+assert np.allclose(A, A_c), 'add_self_ref-stride failed: changed A'
+print("Success")
+
 try:
-    print('\n-------\nadd_self_ref:')
+    print('\n-------\nadd_self_ref_ref:')
 
-    B = Test.add_self_ref(A)
-    assert np.allclose(B-A, A), 'add_self_ref failed'
-    assert np.allclose(A, A_c), 'add_self_ref failed: changed A'
-    print("Success")
-
-
-    print('\n-------\nadd_self_ref-stride:')
-
-    B = Test.add_self_ref(A[::2])
-
-    assert np.allclose(B-A[::2], A[::2]), 'add_self_ref-stride failed'
-    assert np.allclose(A, A_c), 'add_self_ref-stride failed: changed A'
-    print("Success")
+    B = Test.add_self_ref_ref(A)
+    assert np.allclose(B - A, A), 'add_self_ref_ref failed'
+    assert np.allclose(A, A_c), 'add_self_ref_ref failed: changed A'
+except TypeError as e:
+    print("Success, TensorRef<TensorRef<...>> is not a convertible type.")
 
 
-    print('\n-------\nadd_self_ref_expr:')
+try:
+    print('\n-------\nadd_self_ref_undef:')
 
-    B = Test.add_self_ref_expr(A)
-    assert np.allclose(B-A, A), 'add_self_ref_expr failed'
-    assert np.allclose(A, A_c), 'add_self_ref_expr failed: changed A'
-    print("Success")
+    iters = 0
+    while iters < 1000:
+        B = Test.add_self_ref_undef(A)
+        alloc_dummy_A()
+        assert np.allclose(B - A, A), 'add_self_ref_undef failed'
+        assert np.allclose(A, A_c), 'add_self_ref_undef failed: changed A'
+        iters += 1
+    print("Failed reaching undefined behavior.") # Only consistent if DEBUG_ALLOC is defined.
 
 except Exception as e:
     print(e)
+    print("Successfully reached undefined behavior at iteration", iters)
 
 print('\n-------\nadd_self_repeat10:')
 
@@ -120,7 +141,7 @@ print('\n-------\nadd_self_vector-memcleanup:')
 
 mem = psutil.virtual_memory().used
 N = [M for i in range(100)]
-for i in range(10000):
+for i in range(1000):
     N = Test.add_self_vector(N)
     W = Test.add_self_vector(V)
 mem_diff = psutil.virtual_memory().used - mem
@@ -131,7 +152,7 @@ print("Success")
 print('\n-------\nadd_self_repeat10-memcleanup:')
 
 mem = psutil.virtual_memory().used
-for i in range(100000):
+for i in range(1000):
     O = Test.add_self_repeat10(M)
     W = Test.add_self_repeat10(T)
 mem_diff = psutil.virtual_memory().used - mem
@@ -139,12 +160,12 @@ assert mem_diff < 10 * mem, 'add_self_repeat10-memcleanup failed, used %i more b
 print("Success")
 
 
-print('\n-------\nprint-const:')
+print('\n-------\nprint-const:\n')
 
 Test.print_const(A)
 print("Success")
 
-print('\n-------\nprint:')
+print('\n-------\nprint:\n')
 
 Test.print(A[2::2, :, :])
 print("Success")

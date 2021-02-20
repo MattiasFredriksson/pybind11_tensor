@@ -12,69 +12,83 @@ namespace pyd = pybind11::detail;
 
 template<typename FP>
 void print_const(const Eigen::TensorRef<const Eigen::Tensor<FP, 3, 1>> tensor) {
-    std::cout << tensor << std::endl;
+    std::stringstream st;
+    st << tensor;
+    py::print(st.str());
 }
 template<typename FP>
 void print_nonconst(Eigen::TensorRef<Eigen::Tensor<FP, 3, 1>> tensor) {
-    std::cout << tensor << std::endl;
+    std::stringstream st;
+    st << tensor;
+    py::print(st.str());
+}
+
+template<typename FP>
+void check_eigen_move_operator() {
+    Eigen::Tensor<FP, 3, 1> tensor(4, 4, 4);
+    tensor.setRandom();
+
+    FP* ptr = tensor.data();
+    Eigen::Tensor<FP, 3, 1> t(std::move(tensor));
+    if (t.data() == ptr)
+        py::print("Tensor moved.");
+    else
+        py::print("Tensor copied.");
+
+
+    Eigen::Matrix<FP, 12, 12> a;
+    a.setRandom();
+    ptr = a.data();
+
+    Eigen::Matrix<FP, 12, 12> b(std::move(a));
+    if (b.data() == ptr)
+        py::print("Matrix moved.");
+    else
+        py::print("Matrix copied.");
 }
 
 template<typename FP>
 Eigen::Tensor<FP, 3, 1> add_self(Eigen::Tensor<FP, 3, 1> tensor) {
-    auto ptr = tensor.data();
-    Eigen::Tensor<FP, 3, 1> t(std::move(tensor));
-    if (t.data() == ptr)
-        std::cout << "Tensor moved\n";
-    else
-        std::cout << "Tensor copied\n";
-
-
-    Eigen::Matrix<float, 12, 12> a;
-    a.setRandom();
-    float* ptrm = a.data();
-
-    Eigen::Matrix<float, 12, 12> b(std::move(a));
-    if (b.data() == ptrm)
-        std::cout << "Matrix moved\n";
-    else
-        std::cout << "Matrix copied\n";
-
-    return t + t;
-}
-
-template<typename FP>
-Eigen::TensorRef<Eigen::Tensor<FP, 3, 1>> add_self_ref(Eigen::TensorRef< Eigen::Tensor<FP, 3, 1>> tensor) {
-    // Return tensor evaluated tensor packed in ref argument
-    tensor = Eigen::TensorRef<Eigen::Tensor<FP, 3, 1>>(Eigen::Tensor<FP, 3, 1>(tensor + tensor));
-    auto c(tensor);
-    new(&c)Eigen::TensorRef<Eigen::Tensor<FP, 3, 1>>(Eigen::Tensor<FP, 3, 1>(tensor + tensor + tensor));
-    
-    std::cout << tensor.data() << std::endl;
-
-    Eigen::Tensor<FP, 3, 1> e(tensor + tensor + tensor);
-    std::cout << e.data() << std::endl;
-    Eigen::Tensor<FP, 3, 1> f(tensor + tensor + tensor);
-    std::cout << f.data() << std::endl;
-    Eigen::Tensor<FP, 3, 1> g(tensor + tensor + tensor);
-    std::cout << g.data() << std::endl;
-    Eigen::Tensor<FP, 3, 1> h(tensor + tensor + tensor);
-    std::cout << h.data() << std::endl;
-
-    return tensor;
-}
-
-template<typename FP>
-Eigen::TensorRef<Eigen::Tensor<FP, 3, 1>> add_self_ref_expr(Eigen::TensorRef< Eigen::Tensor<FP, 3, 1>> tensor) {
-    // Return tensor expression as ref
     return tensor + tensor;
 }
 
-
 template<typename FP>
-Eigen::TensorRef<Eigen::Tensor<FP, 3, 1>> double_ref(Eigen::TensorRef<Eigen::TensorRef<Eigen::Tensor<FP, 3, 1>>> tensor) {
+Eigen::TensorRef<Eigen::Tensor<FP, 3, 1>> add_self_ref(Eigen::TensorRef<Eigen::Tensor<FP, 3, 1>> tensor) {
     return tensor + tensor;
 }
 
+template<typename FP>
+Eigen::TensorRef<Eigen::Tensor<FP, 3, 1>> add_self_ref_ref(Eigen::TensorRef<Eigen::TensorRef<Eigen::Tensor<FP, 3, 1>>> tensor) {
+    return tensor + tensor;
+}
+
+template<typename FP = double>
+void tensor_dummy_ops(int N) {
+    static Eigen::Tensor<double, 3, 1> dummy;
+    for (int i = 0; i < N; i++) {
+        Eigen::Tensor<double, 3, 1> tensor(10, 10, 10);
+        tensor.setRandom();
+        dummy = tensor;
+    }
+    std::stringstream os;
+    os << dummy;
+    os.clear();
+    std::cout << os.str()[0] << '\r' << " \r";
+}
+
+template<typename FP>
+Eigen::TensorRef<Eigen::Tensor<FP, 3, 1>> add_self_ref_undef(Eigen::TensorRef<Eigen::Tensor<FP, 3, 1>> tensor) {
+    // Returning an evaluated tensor expression as rvalue yields undefined behavior
+
+    Eigen::Tensor<FP, 3, 1> tmp_ten = tensor;
+    Eigen::TensorRef<Eigen::Tensor<FP, 3, 1>> tmp_ref = tmp_ten + tmp_ten;
+    tmp_ten = tensor + tensor;
+    Eigen::TensorRef<Eigen::Tensor<FP, 3, 1>> valid_ref = tensor + tensor;
+
+    //return tmp_ten;       // Undefined behavior
+    return tmp_ref;         // Undefined behavior
+    //return valid_ref;     // Valid. Consist of an expression over the input argument which persists until after variable python cast is complete.
+}
 
 template<typename FP>
 void add_self_map(Eigen::TensorMap<Eigen::Tensor<FP, 3, 1>>& tensor) {
@@ -141,6 +155,12 @@ PYBIND11_MODULE(pybind11_tensor_test, m) {
            :toctree: _generate
 
     )pbdoc";
+
+    m.def("check_eigen_move_operator", &check_eigen_move_operator<double>, R"pbdoc(
+        Check if eigen support move constructors.
+    )pbdoc");
+    
+
     m.def("print_const", &print_const<double>, py::return_value_policy::copy, R"pbdoc(
         Print a const entity.
     )pbdoc");
@@ -158,14 +178,15 @@ PYBIND11_MODULE(pybind11_tensor_test, m) {
     )pbdoc");
 
     m.def("add_self_ref", &add_self_ref<double>, R"pbdoc(
-        Add self to self.
+        Add self to self using a TensorRef<> argument.
     )pbdoc");
-    m.def("add_self_ref_expr", &add_self_ref_expr<double>, R"pbdoc(
-        Add self to self.
+    m.def("add_self_ref_ref", &add_self_ref_ref<double>, R"pbdoc(
+        Add self to self using a TensorRef<TensorRef<>> argument.
     )pbdoc");
-    m.def("double_ref", &double_ref<double>, R"pbdoc(
-        Pass ref ref.
+    m.def("add_self_ref_undef", &add_self_ref_undef<double>, R"pbdoc(
+        Add self to self using a TensorRef return argument (undefined behavior). 
     )pbdoc");
+
     m.def("add_self_repeat10", py::overload_cast<Eigen::TensorMap<Eigen::Tensor<double, 3, 1>>&>(&add_self_repeat10<double>),
         py::return_value_policy::take_ownership, R"pbdoc(
         Add self to self 10 times.

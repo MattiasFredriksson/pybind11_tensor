@@ -4,6 +4,7 @@
 cmake_minimum_required (VERSION 3.8)
 
 project ("pybind11_tensor_test")
+set(CMAKE_CXX_STANDARD 17)
 
 # Path to eigen library goes here:
 set(EigenPath "${CMAKE_CURRENT_LIST_DIR}/../../external/eigen/")

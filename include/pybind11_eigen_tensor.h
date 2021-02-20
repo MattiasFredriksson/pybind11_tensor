@@ -651,11 +651,21 @@ public:
     *   the expression is evaluated into a new tensor and returned.
     */
     static handle cast_impl(Type* src, return_value_policy policy, handle parent) {
-
         const props::Scalar* ptr = src->data();
 
+//#define DEBUG_ALLOC
+#ifdef DEBUG_ALLOC
+        // Flush deallocated memory, helps identify deallocation issues (there are better approaches...).
+        for (int i = 0; i < 10; i++) {
+            Eigen::Tensor<Scalar, props::rank> t(src->dimensions());
+            t.setRandom();
+            std::cout << std::to_string(t.data()[0]) << '\r';
+        }
+        std::cout << "         \r";
+#endif
+
         // If no data ptr, assume the argument is an expression which requires evaluation.
-        if (!ptr) 
+        if (!ptr)
             policy = return_value_policy::copy;
 
         switch (policy) {
@@ -672,6 +682,7 @@ public:
 #endif
         case return_value_policy::copy:
         case return_value_policy::automatic:
+        case return_value_policy::move:
         default:
         {
             // Evaluate as a dense tensor to pass to python (either to copy or evaluate a tensor statement).
