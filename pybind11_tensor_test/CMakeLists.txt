@@ -24,4 +24,4 @@ target_sources(pybind11_tensor_test
 	PRIVATE 
 	   "main.cpp"
 	   "../include/pybind11_eigen_tensor.h"
-	   "../include/pybind11_eigen_quat.h")
+	   )
