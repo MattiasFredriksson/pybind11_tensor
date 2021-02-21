@@ -451,7 +451,7 @@ namespace tensorial {
 		if (t0.dimension(rank) != t1.dimension(rank)) {
 			std::ostringstream buf;
 			buf << "Mismatch in dimensions within rank " << rank << " of the tensor arguments. First tensor argument was of shape: (";
-			buf << t0.dimensions() << ") and second argument of shape (" << t1.dimensions() << ").";
+			buf << t0.dimensions() << "), second argument of shape (" << t1.dimensions() << ").";
 			throw std::invalid_argument(buf.str());
 		}
 	}
@@ -463,9 +463,9 @@ namespace tensorial {
 
 		if (t0.dimension(rank0) != t1.dimension(rank1)) {
 			std::ostringstream buf;
-			buf << "Mismatch in rank dimensions for rank " << rank0 << " in the first tensor argument and rank ";
-			buf << rank1 << " in the second argument. First tensor argument was of shape: (";
-			buf << t0.dimensions() << ") and second argument of shape (" << t1.dimensions() << ").";
+			buf << "Mismatch in rank dimensions for rank " << rank0 << " in the first argument and rank ";
+			buf << rank1 << " in the second. First tensor argument was of shape: (";
+			buf << t0.dimensions() << "), second argument of shape (" << t1.dimensions() << ").";
 			throw std::invalid_argument(buf.str());
 		}
 	}
