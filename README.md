@@ -51,4 +51,4 @@ Preferable behavior when returning TensorRef arguments to the Python side is to 
 
 ## Eigen::Quaternion
 
-Type caster for Eigen::Quaternion is available in pybind11_eigen_quat.h.
+Type caster for Eigen::Quaternion is also provided by pybind11_eigen_tensor.h.
