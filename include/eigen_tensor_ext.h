@@ -75,6 +75,16 @@ namespace tensorial {
 	{
 		return Eigen::Map<const MatrixType<Scalar>>(tensor.data(), tensor.dimension(0), tensor.dimension(1));
 	}
+	template<typename Scalar, int Rows, int Cols, int Major>
+	auto matrix2tensor(const Eigen::Map<Eigen::Matrix<Scalar, Rows, Cols, Major>>& matrix)
+	{
+		return Eigen::TensorMap<Eigen::Tensor<Scalar, 2, Major>>(matrix.data(), matrix.rows(), matrix.cols());
+	}
+	template<typename Scalar, int Rows, int Cols, int Major>
+	auto matrix2tensor(Eigen::Matrix<Scalar, Rows, Cols, Major>& matrix)
+	{
+		return Eigen::TensorMap<Eigen::Tensor<Scalar, 2, Major>>(matrix.data(), matrix.rows(), matrix.cols());
+	}
 
 #pragma region slice row major matrix
 
@@ -287,7 +297,7 @@ namespace tensorial {
 
 	private:
 		/* Reference tensor. */
-		TensorType& m_tensor;
+		TensorType m_tensor;
 		Eigen::Index m_stride;
 		Eigen::array<Eigen::DenseIndex, Rank - 1> m_shape;
 	public:
@@ -302,7 +312,7 @@ namespace tensorial {
 		}
 
 		tensoriterator(TensorType& tensor)
-			: m_tensor(tensor), m_stride(1) {
+			: m_tensor(TensorType(tensor.data(), tensor.dimensions())), m_stride(1) {
 			init();
 		}
 		tensoriterator(DenseTensorType& tensor)
@@ -311,7 +321,7 @@ namespace tensorial {
 		}
 
 		/*
-		* <summary>Get the size of the iterated dimension.</summary>
+		* <summary>Get the size of the iterated dimension. TODO: RENAME count</summary>
 		*/
 		size_t size() { return m_tensor.dimension(0); }
 
