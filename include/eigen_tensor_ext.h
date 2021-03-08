@@ -94,8 +94,24 @@ namespace tensorial {
 	{
 		return Eigen::TensorMap<Eigen::Tensor<Scalar, 2, Major>>(matrix.data(), matrix.rows(), matrix.cols());
 	}
+	/**
+	* <summary>Convert vector map to tensor.</summary>
+	*/
+	template<typename Scalar, int Rows, int Cols, int Major>
+	auto vector2tensor(const Eigen::Map<Eigen::Matrix<Scalar, Rows, Cols, Major>>& vector)
+	{
+		return Eigen::TensorMap<Eigen::Tensor<Scalar, 1, Eigen::RowMajor>>(vector.data(), vector.size());
+	}
+	/**
+	* <summary>Convert dense vector to tensor.</summary>
+	*/
+	template<typename Scalar, int Rows, int Cols, int Major>
+	auto vector2tensor(Eigen::Matrix<Scalar, Rows, Cols, Major>& vector)
+	{
+		return Eigen::TensorMap<Eigen::Tensor<Scalar, 1, Eigen::RowMajor>>(vector.data(), vector.size());
+	}
 
-#pragma region helpers
+#pragma region Helpers
 
 	/*	Unpacks variadic arg -> std::array of type T and size N.
 	*/
@@ -144,7 +160,7 @@ using InnerTStride = Eigen::Stride<1, Eigen::Dynamic>;
 #pragma region slice row major column vector
 
 	/**
-	* <summary>Get a row major column vector slice (subtensor) from a row major tensor.</summary>
+	* <summary>Get a column vector slice (subtensor) from a row major tensor.</summary>
 	* <param name="tensor">Row major tensor of rank N.</param>
 	* <param name="slice_offsets"> Offset indices for the subtensor within the first N-1 rank dimensions.</param>
 	* <returns>A mapped matrix view of the subtensor slice.</returns>
@@ -153,24 +169,24 @@ using InnerTStride = Eigen::Stride<1, Eigen::Dynamic>;
 		is_eigen_row_major_tensor<TensorType>,
 		std::negation<is_eigen_mutable_tensor<TensorType>>>::value,
 		int> = 0>
-		Eigen::Map<const Eigen::Matrix<typename TensorType::Scalar, Eigen::Dynamic, 1, Eigen::RowMajor>, Eigen::RowMajor, EigenStride>
+		Eigen::Map<const Eigen::Matrix<typename TensorType::Scalar, Eigen::Dynamic, 1, Eigen::ColMajor>>
 		slice_vector(TensorType& tensor, typename Ix... slice_offset) { //slice_offsets[TensorType::Dimensions - 2]
 		static_assert(TensorType::Layout == Eigen::RowMajor, "Invalid tensor layout type, expected tensor to be row major.");
 		static_assert(std::size_t{ sizeof...(Ix) } == TensorType::NumIndices - 1,
 			"Incorrect number of indices passed to slice function.");//, expected " + std::to_string(TensorType::NumIndices - 1));
 		Eigen::Index d1 = tensor.dimension(TensorType::NumIndices - 1);
-		EigenStride stride(1, 1);
+		Eigen::Stride<0, 0> stride;
 		// Calc. offset
 		Eigen::Index offset = tensor_offset(tensor, slice_offset...);
 
-		return Eigen::Map<const Eigen::Matrix<TensorType::Scalar, Eigen::Dynamic, 1, Eigen::RowMajor>, Eigen::RowMajor, EigenStride>(
+		return Eigen::Map<const Eigen::Matrix<TensorType::Scalar, Eigen::Dynamic, 1, Eigen::ColMajor>>(
 			tensor.data() + offset,
 			d1,
 			1,
 			stride);
 	}
 	/**
-	* <summary>Get a row major matrix slice (subtensor) from a row major tensor.</summary>
+	* <summary>Get a column vector slice (subtensor) from a row major tensor.</summary>
 	* <param name="tensor"> Row major tensor of rank N.</param>
 	* <param name="slice_offsets"> Offset indices for the subtensor within the first N-2 rank dimensions.</param>
 	* <returns>A mapped matrix view of the subtensor slice.</returns>
@@ -179,10 +195,10 @@ using InnerTStride = Eigen::Stride<1, Eigen::Dynamic>;
 		is_eigen_row_major_tensor<TensorType>,
 		is_eigen_mutable_tensor<TensorType>>::value,
 		int> = 0>
-		Eigen::Map<Eigen::Matrix<typename TensorType::Scalar, Eigen::Dynamic, 1, Eigen::RowMajor>, Eigen::RowMajor, EigenStride>
+		Eigen::Map<Eigen::Matrix<typename TensorType::Scalar, Eigen::Dynamic, 1, Eigen::ColMajor>>
 		slice_vector(TensorType& tensor, typename Ix... slice_offset) {
 		// Return const. version
-		return *reinterpret_cast<Eigen::Map<Eigen::Matrix<typename TensorType::Scalar, Eigen::Dynamic, 1, Eigen::RowMajor>, Eigen::RowMajor, Eigen::InnerStride<>>*>(
+		return *reinterpret_cast<Eigen::Map<Eigen::Matrix<typename TensorType::Scalar, Eigen::Dynamic, 1, Eigen::ColMajor>>*>(
 			&slice_vector(tensor, slice_offset...));
 	}
 

@@ -37,9 +37,10 @@ void check_eigen_row_col_mult() {
 
 }
 
+#pragma region slice_matrix/chip_matrix
 
 template<typename FP = double>
-Tensor<FP, 3> slice(const TensorMapC<FP, 3>& tensor) {
+Tensor<FP, 3> slice_matrix(const TensorMapC<FP, 3>& tensor) {
 
     auto dims = tensor.dimensions();
     Tensor<FP, 3> result(dims);
@@ -57,7 +58,7 @@ Tensor<FP, 3> slice(const TensorMapC<FP, 3>& tensor) {
 }
 
 template<typename FP = double>
-Tensor<FP, 4> slice(const TensorMapC<FP, 4>& tensor) {
+Tensor<FP, 4> slice_matrix(const TensorMapC<FP, 4>& tensor) {
 
     auto dims = tensor.dimensions();
     Tensor<FP, 4> result(dims);
@@ -91,7 +92,7 @@ Tensor<FP, 4> slice(const TensorMapC<FP, 4>& tensor) {
     return result;
 }
 template<typename FP = double>
-Tensor<FP, 5> slice(const TensorMapC<FP, 5>& tensor) {
+Tensor<FP, 5> slice_matrix(const TensorMapC<FP, 5>& tensor) {
 
     auto dims = tensor.dimensions();
     Tensor<FP, 5> result(dims);
@@ -117,7 +118,7 @@ Tensor<FP, 5> slice(const TensorMapC<FP, 5>& tensor) {
 * <summary>Utilize recursive chip instead of iterators.</summary>
 */
 template<typename FP = double>
-Tensor<FP, 5> chip(const TensorMapC<FP, 5>& tensor) {
+Tensor<FP, 5> chip_matrix(const TensorMapC<FP, 5>& tensor) {
 
     auto dims = tensor.dimensions();
     Tensor<FP, 5> result(dims);
@@ -137,6 +138,89 @@ Tensor<FP, 5> chip(const TensorMapC<FP, 5>& tensor) {
     return result;
 }
 
+#pragma endregion
+
+
+#pragma region slice_vector
+
+template<typename FP = double>
+Tensor<FP, 2> slice_vector(const TensorMapC<FP, 2>& tensor) {
+
+    auto dims = tensor.dimensions();
+    Tensor<FP, 2> result(dims);
+
+    // Update
+    tensoriterator<TensorMap<FP, 2>> T(result);
+    for (long long int i = 0; i < (long long int)dims[0]; i++) {
+        Vector<FP> vec(slice_vector(tensor, i));
+        T(i) = vector2tensor(vec);
+    }
+
+    return result;
+}
+/*
+template<typename FP = double>
+Tensor<FP, 3> slice_vector(const TensorMapC<FP, 3>& tensor) {
+
+    auto dims = tensor.dimensions();
+    Tensor<FP, 3> result(dims);
+
+    // Update
+    tensoriterator<TensorMap<FP, 3>> T(result);
+    for (long long int i = 0; i < (long long int)dims[0]; i++) {
+        Vector<FP> mat(slice_matrix(tensor, i));
+
+        T(i) = TensorMap<FP, 2>(mat.data(), dims[1], dims[2]);
+    }
+
+    return result;
+}
+template<typename FP = double>
+Tensor<FP, 4> slice_vector(const TensorMapC<FP, 4>& tensor) {
+
+    auto dims = tensor.dimensions();
+    Tensor<FP, 4> result(dims);
+
+    // Update
+    tensoriterator<TensorMap<FP, 4>> T(result);
+    for (long long int j = 0; j < (long long int)dims[0]; j++) {
+        tensoriterator<TensorMap<FP, 3>> subtensor(T(j));
+        for (long long int i = 0; i < (long long int)dims[1]; i++) {
+            MatrixNN<FP> mat(slice_matrix(tensor, j, i));
+
+            subtensor[i].tensor() = TensorMap<FP, 2>(mat.data(), dims[2], dims[3]);
+            //subtensor[i].ref() = TensorMap<FP, 2>(mat.data(), dims[2], dims[3]);
+            //subtensor(i) = TensorMap<FP, 2>(mat.data(), dims[2], dims[3]);
+        }
+    }
+    return result;
+}
+template<typename FP = double>
+Tensor<FP, 5> slice_vector(const TensorMapC<FP, 5>& tensor) {
+
+    auto dims = tensor.dimensions();
+    Tensor<FP, 5> result(dims);
+
+    // Update
+    tensoriterator<TensorMap<FP, 5>> T(result);
+    for (long long int k = 0; k < (long long int)dims[0]; k++) {
+        tensoriterator<TensorMap<FP, 4>> subtensor(T(k));
+        for (long long int j = 0; j < (long long int)dims[1]; j++) {
+            tensoriterator<TensorMap<FP, 3>> subsubtensor(subtensor(j));
+            for (long long int i = 0; i < (long long int)dims[2]; i++) {
+                MatrixNN<FP> mat(slice_matrix(tensor, k, j, i));
+
+                subsubtensor(i) = TensorMap<FP, 2>(mat.data(), dims[3], dims[4]);
+            }
+        }
+    }
+
+    return result;
+}
+*/
+
+#pragma endregion
+
 PYBIND11_MODULE(slice, m) {
     m.doc() = R"pbdoc(
         slice
@@ -148,7 +232,8 @@ PYBIND11_MODULE(slice, m) {
            :toctree: _generate
            
            check_eigen_row_col_mult
-           slice
+           slice_matrix
+           slice_vector
            chip
     )pbdoc";
 
@@ -157,32 +242,42 @@ PYBIND11_MODULE(slice, m) {
         ....
     )pbdoc");
 
-    m.def("slice", py::overload_cast<const TensorMapC<float, 3>&>(&slice<float>), R"pbdoc(
-        slice
+
+    m.def("slice_vector", py::overload_cast<const TensorMapC<float, 2>&>(&slice_vector<float>), R"pbdoc(
+        slice_matrix
     )pbdoc");
-    m.def("slice", py::overload_cast<const TensorMapC<double, 3>&>(&slice<double>), R"pbdoc(
-        slice
+    m.def("slice_vector", py::overload_cast<const TensorMapC<double, 2>&>(&slice_vector<double>), R"pbdoc(
+        slice_vector
+    )pbdoc");
+    
+
+    m.def("slice_matrix", py::overload_cast<const TensorMapC<float, 3>&>(&slice_matrix<float>), R"pbdoc(
+        slice_matrix
+    )pbdoc");
+    m.def("slice_matrix", py::overload_cast<const TensorMapC<double, 3>&>(&slice_matrix<double>), R"pbdoc(
+        slice_matrix
     )pbdoc");
 
-    m.def("slice", py::overload_cast<const TensorMapC<float, 4>&>(&slice<float>), R"pbdoc(
-        slice
+
+    m.def("slice_matrix", py::overload_cast<const TensorMapC<float, 4>&>(&slice_matrix<float>), R"pbdoc(
+        slice_matrix
     )pbdoc");
-    m.def("slice", py::overload_cast<const TensorMapC<double, 4>&>(&slice<double>), R"pbdoc(
-        slice
+    m.def("slice_matrix", py::overload_cast<const TensorMapC<double, 4>&>(&slice_matrix<double>), R"pbdoc(
+        slice_matrix
     )pbdoc");
 
-    m.def("slice", py::overload_cast<const TensorMapC<float, 5>&>(&slice<float>), R"pbdoc(
-        slice
+    m.def("slice_matrix", py::overload_cast<const TensorMapC<float, 5>&>(&slice_matrix<float>), R"pbdoc(
+        slice_matrix
     )pbdoc");
-    m.def("slice", py::overload_cast<const TensorMapC<double, 5>&>(&slice<double>), R"pbdoc(
-        slice
+    m.def("slice_matrix", py::overload_cast<const TensorMapC<double, 5>&>(&slice_matrix<double>), R"pbdoc(
+        slice_matrix
     )pbdoc");
 
-    m.def("chip", py::overload_cast<const TensorMapC<float, 5>&>(&chip<float>), R"pbdoc(
-        chip
+    m.def("chip_matrix", py::overload_cast<const TensorMapC<float, 5>&>(&chip_matrix<float>), R"pbdoc(
+        chip_matrix
     )pbdoc");
-    m.def("chip", py::overload_cast<const TensorMapC<double, 5>&>(&chip<double>), R"pbdoc(
-        chip
+    m.def("chip_matrix", py::overload_cast<const TensorMapC<double, 5>&>(&chip_matrix<double>), R"pbdoc(
+        chip_matrix
     )pbdoc");
 
 #ifdef VERSION_INFO

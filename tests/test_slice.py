@@ -9,7 +9,7 @@ import unittest
 import numpy as np
 import psutil
 
-class Test_slice_matrix(unittest.TestCase):
+class Test_slice_matrix():#unittest.TestCase):
 	def setUpClass():
 		Test_slice_matrix.rng = np.random.default_rng()
 
@@ -34,7 +34,6 @@ class Test_slice_matrix(unittest.TestCase):
 	#
 
 	def test_A_slice_100(self):
-		return
 		N = 100
 
 		T = self.gen_random_tensor((N, N, N))
@@ -43,7 +42,6 @@ class Test_slice_matrix(unittest.TestCase):
 		assert np.allclose(T, T_out), 'slice_matrix<double, 3> failed'
 
 	def test_C_slice_Nx3x5(self):
-		return
 		N = 100
 
 		T = self.gen_random_tensor((N, 3, 5))
@@ -52,7 +50,6 @@ class Test_slice_matrix(unittest.TestCase):
 		assert np.allclose(T, T_out), 'slice_matrix<double, 3> failed'
 
 	def test_D_slice_Nx31x18(self):
-		return
 		N = 10
 
 		T = self.gen_random_tensor((N, 31, 18))
@@ -97,3 +94,36 @@ class Test_slice_matrix(unittest.TestCase):
 				T = self.gen_randomized_tensor(rank=r, max_dims=33)
 				T_out = slice.slice(T)
 				assert np.allclose(T, T_out), 'slice_matrix<double, %i> failed on random tensor.' % r
+
+
+class Test_slice_vector(unittest.TestCase):
+	def setUpClass():
+		Test_slice_vector.rng = np.random.default_rng()
+
+	#
+	#   Helpers
+	#
+
+	def gen_random_tensor(self, shape=(10, 10, 10)):
+		''' Generate random tensor of given shape.
+		'''
+		return Test_slice_vector.rng.uniform(-1, 1, shape)
+
+	def gen_randomized_tensor(self, rank=4, max_dims=100):
+		''' Generate random rotation matrices on form Nx3x3
+		'''
+		shape = Test_slice_vector.rng.integers(2, max_dims, rank)
+		return Test_slice_vector.rng.uniform(-1, 1, shape)
+
+
+	#
+	#   Tests
+	#
+
+	def test_A_slice_100(self):
+		N = 100
+
+		T = self.gen_random_tensor((N, N))
+		T_out = slice.slice_vector(T)
+
+		assert np.allclose(T, T_out), 'slice_vector<double, 2> failed'
