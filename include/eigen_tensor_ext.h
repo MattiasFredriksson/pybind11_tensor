@@ -68,18 +68,42 @@ namespace tensorial {
 	using Quat = Eigen::Quaternion<FP>;
 #pragma endregion
 
+#pragma region slice
+/*	Unpack variadic arg -> array
+*/
+template<class T, size_t N, class ... Values>
+void assign_values(std::array<T, N>& arr, Values... vals) {
+	static_assert(N == sizeof...(vals));
+	int j = 0;
+	for (auto i : std::initializer_list< std::common_type_t<Values...> >{ vals... })
+		arr[j++] = i;
+}
+
+#pragma region slice vector
+
+#pragma endregion 
+
 #pragma region slice matrix
 
+	/**
+	* <summary>Convert dense tensor to matrix.</summary>
+	*/
 	template<typename Scalar, int rank, typename sizeType>
 	auto tensor2matrix(const Eigen::Tensor<Scalar, rank>& tensor)
 	{
 		return Eigen::Map<const MatrixType<Scalar>>(tensor.data(), tensor.dimension(0), tensor.dimension(1));
 	}
+	/**
+	* <summary>Convert matrix map to tensor.</summary>
+	*/
 	template<typename Scalar, int Rows, int Cols, int Major>
 	auto matrix2tensor(const Eigen::Map<Eigen::Matrix<Scalar, Rows, Cols, Major>>& matrix)
 	{
 		return Eigen::TensorMap<Eigen::Tensor<Scalar, 2, Major>>(matrix.data(), matrix.rows(), matrix.cols());
 	}
+	/**
+	* <summary>Convert dense matrix to tensor.</summary>
+	*/
 	template<typename Scalar, int Rows, int Cols, int Major>
 	auto matrix2tensor(Eigen::Matrix<Scalar, Rows, Cols, Major>& matrix)
 	{
@@ -91,15 +115,6 @@ namespace tensorial {
 	using EigenStride = Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>;
 	using InnerTStride = Eigen::Stride<1, Eigen::Dynamic>;
 
-	/*	Unpack variadic arg -> array
-	*/
-	template<class T, size_t N, class ... Values>
-	void assign_values(std::array<T, N>& arr, Values... vals) {
-		static_assert(N == sizeof...(vals));
-		int j = 0;
-		for (auto i : std::initializer_list< std::common_type_t<Values...> >{ vals... })
-			arr[j++] = i;
-	}
 
 	/*	Index offset for the N first dimensions for row/column tensors. (Column untested).
 	*/
@@ -267,6 +282,7 @@ namespace tensorial {
 
 #pragma endregion
 
+#pragma endregion
 #pragma endregion
 
 #pragma region tensoriterator
