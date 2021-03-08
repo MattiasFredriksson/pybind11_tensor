@@ -10,7 +10,7 @@
 #include "tensor_traits.h"
 
 
-#pragma region Alias
+#pragma region Eigen alias
 namespace tensorial {
 
 	// Tensor alias
@@ -69,21 +69,6 @@ namespace tensorial {
 #pragma endregion
 
 #pragma region slice
-/*	Unpack variadic arg -> array
-*/
-template<class T, size_t N, class ... Values>
-void assign_values(std::array<T, N>& arr, Values... vals) {
-	static_assert(N == sizeof...(vals));
-	int j = 0;
-	for (auto i : std::initializer_list< std::common_type_t<Values...> >{ vals... })
-		arr[j++] = i;
-}
-
-#pragma region slice vector
-
-#pragma endregion 
-
-#pragma region slice matrix
 
 	/**
 	* <summary>Convert dense tensor to matrix.</summary>
@@ -110,11 +95,17 @@ void assign_values(std::array<T, N>& arr, Values... vals) {
 		return Eigen::TensorMap<Eigen::Tensor<Scalar, 2, Major>>(matrix.data(), matrix.rows(), matrix.cols());
 	}
 
-#pragma region slice row major matrix
+#pragma region helpers
 
-	using EigenStride = Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>;
-	using InnerTStride = Eigen::Stride<1, Eigen::Dynamic>;
-
+	/*	Unpacks variadic arg -> std::array of type T and size N.
+	*/
+	template<class T, size_t N, class ... Values>
+	void assign_values(std::array<T, N>& arr, Values... vals) {
+		static_assert(N == sizeof...(vals));	// assert variadic count match array size N
+		int j = 0;
+		for (auto i : std::initializer_list< std::common_type_t<Values...> >{ vals... })
+			arr[j++] = i;
+	}
 
 	/*	Index offset for the N first dimensions for row/column tensors. (Column untested).
 	*/
@@ -144,8 +135,66 @@ void assign_values(std::array<T, N>& arr, Values... vals) {
 		return off;
 	}
 
+#pragma endregion
+
+
+using EigenStride = Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>;
+using InnerTStride = Eigen::Stride<1, Eigen::Dynamic>;
+
+#pragma region slice row major column vector
+
 	/**
-	* <summary>Get a matrix slice (subtensor) from a row major tensor.</summary>
+	* <summary>Get a row major column vector slice (subtensor) from a row major tensor.</summary>
+	* <param name="tensor">Row major tensor of rank N.</param>
+	* <param name="slice_offsets"> Offset indices for the subtensor within the first N-1 rank dimensions.</param>
+	* <returns>A mapped matrix view of the subtensor slice.</returns>
+	*/
+	template<typename TensorType, typename... Ix, std::enable_if_t<std::conjunction<
+		is_eigen_row_major_tensor<TensorType>,
+		std::negation<is_eigen_mutable_tensor<TensorType>>>::value,
+		int> = 0>
+		Eigen::Map<const Eigen::Matrix<typename TensorType::Scalar, Eigen::Dynamic, 1, Eigen::RowMajor>, Eigen::RowMajor, EigenStride>
+		slice_vector(TensorType& tensor, typename Ix... slice_offset) { //slice_offsets[TensorType::Dimensions - 2]
+		static_assert(TensorType::Layout == Eigen::RowMajor, "Invalid tensor layout type, expected tensor to be row major.");
+		static_assert(std::size_t{ sizeof...(Ix) } == TensorType::NumIndices - 1,
+			"Incorrect number of indices passed to slice function.");//, expected " + std::to_string(TensorType::NumIndices - 1));
+		Eigen::Index d1 = tensor.dimension(TensorType::NumIndices - 1);
+		EigenStride stride(1, 1);
+		// Calc. offset
+		Eigen::Index offset = tensor_offset(tensor, slice_offset...);
+
+		return Eigen::Map<const Eigen::Matrix<TensorType::Scalar, Eigen::Dynamic, 1, Eigen::RowMajor>, Eigen::RowMajor, EigenStride>(
+			tensor.data() + offset,
+			d1,
+			1,
+			stride);
+	}
+	/**
+	* <summary>Get a row major matrix slice (subtensor) from a row major tensor.</summary>
+	* <param name="tensor"> Row major tensor of rank N.</param>
+	* <param name="slice_offsets"> Offset indices for the subtensor within the first N-2 rank dimensions.</param>
+	* <returns>A mapped matrix view of the subtensor slice.</returns>
+	*/
+	template<typename TensorType, typename... Ix, std::enable_if_t<std::conjunction<
+		is_eigen_row_major_tensor<TensorType>,
+		is_eigen_mutable_tensor<TensorType>>::value,
+		int> = 0>
+		Eigen::Map<Eigen::Matrix<typename TensorType::Scalar, Eigen::Dynamic, 1, Eigen::RowMajor>, Eigen::RowMajor, EigenStride>
+		slice_vector(TensorType& tensor, typename Ix... slice_offset) {
+		// Return const. version
+		return *reinterpret_cast<Eigen::Map<Eigen::Matrix<typename TensorType::Scalar, Eigen::Dynamic, 1, Eigen::RowMajor>, Eigen::RowMajor, Eigen::InnerStride<>>*>(
+			&slice_vector(tensor, slice_offset...));
+	}
+
+#pragma endregion 
+
+#pragma region slice matrix
+
+#pragma region slice row major matrix
+
+
+	/**
+	* <summary>Get a row major matrix slice (subtensor) from a row major tensor.</summary>
 	* <param name="tensor"> Row major tensor of rank N.</param>
 	* <param name="slice_offsets"> Offset indices for the subtensor within the first N-2 rank dimensions.</param>
 	* <returns>A mapped matrix view of the subtensor slice.</returns>
@@ -172,7 +221,7 @@ void assign_values(std::array<T, N>& arr, Values... vals) {
 			stride);
 	}
 	/**
-	* <summary>Get a matrix slice (subtensor) from a row major tensor.</summary>
+	* <summary>Get a row major matrix slice (subtensor) from a row major tensor.</summary>
 	* <param name="tensor"> Row major tensor of rank N.</param>
 	* <param name="slice_offsets"> Offset indices for the subtensor within the first N-2 rank dimensions.</param>
 	* <returns>A mapped matrix view of the subtensor slice.</returns>
@@ -192,7 +241,7 @@ void assign_values(std::array<T, N>& arr, Values... vals) {
 
 
 	/**
-	* <summary>Get a matrix slice (subtensor) from a row major tensor.</summary>
+	* <summary>Get a column major matrix slice (subtensor) from a row major tensor.</summary>
 	* <param name="tensor"> Row major tensor of rank N.</param>
 	* <param name="slice_offsets"> Offset indices for the subtensor within the first N-2 rank dimensions.</param>
 	* <returns>A mapped matrix view of the subtensor slice.</returns>
@@ -219,7 +268,7 @@ void assign_values(std::array<T, N>& arr, Values... vals) {
 			stride);
 	}
 	/**
-	* <summary>Get a matrix slice (subtensor) from a row major tensor.</summary>
+	* <summary>Get a a column major matrix slice (subtensor) from a row major tensor.</summary>
 	* <param name="tensor"> Row major tensor of rank N.</param>
 	* <param name="slice_offsets"> Offset indices for the subtensor within the first N-2 rank dimensions.</param>
 	* <returns>A mapped matrix view of the subtensor slice.</returns>
