@@ -28,8 +28,8 @@ namespace tensorial {
 	using Tensorf = Tensor<float, rank>;
 
 
-	template<typename FP = double>
-	using Vector = Eigen::Matrix<FP, Eigen::Dynamic, 1, Eigen::ColMajor>;
+	template<typename FP = double, int dim = Eigen::Dynamic>
+	using Vector = Eigen::Matrix<FP, dim, 1, Eigen::ColMajor>;
 	template<typename FP = double>
 	using Vector2 = Eigen::Matrix<FP, 2, 1, Eigen::ColMajor>;
 	template<typename FP = double>
@@ -48,8 +48,10 @@ namespace tensorial {
 	using MatrixN3 = Eigen::Matrix<FP, Eigen::Dynamic, 3, Eigen::RowMajor>;
 	template<typename FP = double>
 	using MatrixN4 = Eigen::Matrix<FP, Eigen::Dynamic, 4, Eigen::RowMajor>;
-	template<typename FP = double>
-	using MatrixNN = Eigen::Matrix<FP, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+	template<typename FP = double, int rows = Eigen::Dynamic, int cols = Eigen::Dynamic>
+	using MatrixNN = Eigen::Matrix<FP, rows, cols, Eigen::RowMajor>;
+	template<typename FP = double, int width = Eigen::Dynamic>
+	using Matrix = MatrixNN<FP, width, width>;
 
 	template<typename FP = double>
 	using MapN2 = Eigen::Map<Eigen::Matrix<FP, Eigen::Dynamic, 2, Eigen::RowMajor>>;
