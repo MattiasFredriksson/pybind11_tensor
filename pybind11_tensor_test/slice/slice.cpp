@@ -158,7 +158,6 @@ Tensor<FP, 2> slice_vector(const TensorMapC<FP, 2>& tensor) {
 
     return result;
 }
-/*
 template<typename FP = double>
 Tensor<FP, 3> slice_vector(const TensorMapC<FP, 3>& tensor) {
 
@@ -167,12 +166,13 @@ Tensor<FP, 3> slice_vector(const TensorMapC<FP, 3>& tensor) {
 
     // Update
     tensoriterator<TensorMap<FP, 3>> T(result);
-    for (long long int i = 0; i < (long long int)dims[0]; i++) {
-        Vector<FP> mat(slice_matrix(tensor, i));
-
-        T(i) = TensorMap<FP, 2>(mat.data(), dims[1], dims[2]);
+    for (long long int j = 0; j < (long long int)dims[0]; j++) {
+        tensoriterator<TensorMap<FP, 2>> subtensor(T(j));
+        for (long long int i = 0; i < (long long int)dims[1]; i++) {
+            Vector<FP> vec(slice_vector(tensor, j, i));
+            subtensor(i) = vector2tensor(vec);
+        }
     }
-
     return result;
 }
 template<typename FP = double>
@@ -186,11 +186,11 @@ Tensor<FP, 4> slice_vector(const TensorMapC<FP, 4>& tensor) {
     for (long long int j = 0; j < (long long int)dims[0]; j++) {
         tensoriterator<TensorMap<FP, 3>> subtensor(T(j));
         for (long long int i = 0; i < (long long int)dims[1]; i++) {
-            MatrixNN<FP> mat(slice_matrix(tensor, j, i));
-
-            subtensor[i].tensor() = TensorMap<FP, 2>(mat.data(), dims[2], dims[3]);
-            //subtensor[i].ref() = TensorMap<FP, 2>(mat.data(), dims[2], dims[3]);
-            //subtensor(i) = TensorMap<FP, 2>(mat.data(), dims[2], dims[3]);
+            tensoriterator<TensorMap<FP, 2>> subsubtensor(subtensor(i));
+            for (long long int l = 0; l < (long long int)dims[2]; l++) {
+                Vector<FP> vec(slice_vector(tensor, j, i, l));
+                subsubtensor(l) = vector2tensor(vec);
+            }
         }
     }
     return result;
@@ -208,16 +208,17 @@ Tensor<FP, 5> slice_vector(const TensorMapC<FP, 5>& tensor) {
         for (long long int j = 0; j < (long long int)dims[1]; j++) {
             tensoriterator<TensorMap<FP, 3>> subsubtensor(subtensor(j));
             for (long long int i = 0; i < (long long int)dims[2]; i++) {
-                MatrixNN<FP> mat(slice_matrix(tensor, k, j, i));
-
-                subsubtensor(i) = TensorMap<FP, 2>(mat.data(), dims[3], dims[4]);
+                tensoriterator<TensorMap<FP, 2>> subx3tensor(subsubtensor(i));
+                for (long long int l = 0; l < (long long int)dims[3]; l++) {
+                    Vector<FP> vec(slice_vector(tensor, k, j, i, l));
+                    subx3tensor(l) = vector2tensor(vec);
+                }
             }
         }
     }
 
     return result;
 }
-*/
 
 #pragma endregion
 
@@ -250,6 +251,30 @@ PYBIND11_MODULE(slice, m) {
         slice_vector
     )pbdoc");
     
+
+    m.def("slice_vector", py::overload_cast<const TensorMapC<float, 3>&>(&slice_vector<float>), R"pbdoc(
+        slice_matrix
+    )pbdoc");
+    m.def("slice_vector", py::overload_cast<const TensorMapC<double, 3>&>(&slice_vector<double>), R"pbdoc(
+        slice_vector
+    )pbdoc");
+
+
+    m.def("slice_vector", py::overload_cast<const TensorMapC<float, 4>&>(&slice_vector<float>), R"pbdoc(
+        slice_matrix
+    )pbdoc");
+    m.def("slice_vector", py::overload_cast<const TensorMapC<double, 4>&>(&slice_vector<double>), R"pbdoc(
+        slice_vector
+    )pbdoc");
+
+
+    m.def("slice_vector", py::overload_cast<const TensorMapC<float, 5>&>(&slice_vector<float>), R"pbdoc(
+        slice_matrix
+    )pbdoc");
+    m.def("slice_vector", py::overload_cast<const TensorMapC<double, 5>&>(&slice_vector<double>), R"pbdoc(
+        slice_vector
+    )pbdoc");
+
 
     m.def("slice_matrix", py::overload_cast<const TensorMapC<float, 3>&>(&slice_matrix<float>), R"pbdoc(
         slice_matrix

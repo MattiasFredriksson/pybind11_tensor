@@ -120,10 +120,66 @@ class Test_slice_vector(unittest.TestCase):
 	#   Tests
 	#
 
-	def test_A_slice_100(self):
+	def test_A_slice_NxN(self):
 		N = 100
 
 		T = self.gen_random_tensor((N, N))
 		T_out = slice.slice_vector(T)
 
 		assert np.allclose(T, T_out), 'slice_vector<double, 2> failed'
+
+	def test_B_slice_Nx5(self):
+		N = 100
+
+		T = self.gen_random_tensor((N, 5))
+		T_out = slice.slice_vector(T)
+
+		assert np.allclose(T, T_out), 'slice_matrix<double, 2> failed'
+
+	def test_C_slice_NxNxN(self):
+		N = 100
+
+		T = self.gen_random_tensor((N, N, N))
+		T_out = slice.slice_vector(T)
+
+		assert np.allclose(T, T_out), 'slice_vector<double, 3> failed'
+
+	def test_D_slice_Nx3x5(self):
+		N = 100
+
+		T = self.gen_random_tensor((N, 3, 5))
+		T_out = slice.slice_vector(T)
+
+		assert np.allclose(T, T_out), 'slice_matrix<double, 3> failed'
+
+	def test_E_slice_NxNxNxN(self):
+		N = 25
+
+		T = self.gen_random_tensor((N, N, N, N))
+		T_out = slice.slice_vector(T)
+
+		assert np.allclose(T, T_out), 'slice_vector<double, 4> failed'
+
+	def test_F_slice_Nx4x3x5(self):
+		N = 100
+
+		T = self.gen_random_tensor((N, 4, 3, 5))
+		T_out = slice.slice_vector(T)
+
+		assert np.allclose(T, T_out), 'slice_matrix<double, 4> failed'
+
+	def test_G_slice_NxNxNxNxN(self):
+		N = 10
+
+		T = self.gen_random_tensor([N]*5)
+		T_out = slice.slice_vector(T)
+
+		assert np.allclose(T, T_out), 'slice_vector<double, 5> failed'
+
+	def test_H_slice_Nx2x3x4x5(self):
+		N = 50
+
+		T = self.gen_random_tensor((N, 2, 3, 4, 5))
+		T_out = slice.slice_vector(T)
+
+		assert np.allclose(T, T_out), 'slice_matrix<double, 5> failed'
