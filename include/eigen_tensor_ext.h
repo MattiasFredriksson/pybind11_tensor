@@ -311,6 +311,16 @@ namespace tensorial {
 			}
 		}
 
+		/*
+		* <summary>RH constructor == non-reference, non-dense constructor. </summary>
+		*/
+		tensoriterator(TensorType&& tensor)
+			: m_tensor(TensorType(tensor.data(), tensor.dimensions())), m_stride(1) {
+			init();
+		}
+		/*
+		* <summary>LH constructor == reference constructors (dense and non-dense). </summary>
+		*/
 		tensoriterator(TensorType& tensor)
 			: m_tensor(TensorType(tensor.data(), tensor.dimensions())), m_stride(1) {
 			init();
