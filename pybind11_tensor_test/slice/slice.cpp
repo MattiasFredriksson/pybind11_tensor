@@ -65,8 +65,7 @@ Tensor<FP, 4> slice(const TensorMapC<FP, 4>& tensor) {
     // Update
     tensoriterator<TensorMap<FP, 4>> T(result);
     for (long long int j = 0; j < (long long int)dims[0]; j++) {
-        auto J = T(j);
-        tensoriterator<TensorMap<FP, 3>> subtensor(J);
+        tensoriterator<TensorMap<FP, 3>> subtensor(T(j));
         for (long long int i = 0; i < (long long int)dims[1]; i++) {
             MatrixNN<FP> mat(slice_matrix(tensor, j, i));
 
@@ -100,11 +99,9 @@ Tensor<FP, 5> slice(const TensorMapC<FP, 5>& tensor) {
     // Update
     tensoriterator<TensorMap<FP, 5>> T(result);
     for (long long int k = 0; k < (long long int)dims[0]; k++) {
-        auto K = T(k);
-        tensoriterator<TensorMap<FP, 4>> subtensor(K);
+        tensoriterator<TensorMap<FP, 4>> subtensor(T(k));
         for (long long int j = 0; j < (long long int)dims[1]; j++) {
-            auto J = subtensor(j);
-            tensoriterator<TensorMap<FP, 3>> subsubtensor(J);
+            tensoriterator<TensorMap<FP, 3>> subsubtensor(subtensor(j));
             for (long long int i = 0; i < (long long int)dims[2]; i++) {
                 MatrixNN<FP> mat(slice_matrix(tensor, k, j, i));
 
