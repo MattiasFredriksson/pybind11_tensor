@@ -14,29 +14,6 @@ namespace pyd = pybind11::detail;
 using namespace tensorial;
 
 
-void check_eigen_row_col_mult() {
-    Eigen::Matrix<float, 3, 3, Eigen::ColMajor> c(Eigen::Matrix<float, 3, 3, Eigen::ColMajor>::Identity());
-    c(1, 0) = 1.0;
-    c(2, 0) = 1.0;
-    Eigen::Matrix<float, 3, 3, Eigen::RowMajor> r(Eigen::Matrix<float, 3, 3, Eigen::RowMajor>::Identity());
-    r(1, 0) = 1.0;
-    r(2, 0) = 1.0;
-    Eigen::Matrix<float, 3, 1, Eigen::ColMajor> cv(1.0, 0.0, 0.0);
-    Eigen::Matrix<float, 1, 3, Eigen::RowMajor> rv(1.0, 0.0, 0.0);
-    std::cout << "Col matrix:\n" << c << std::endl;
-    std::cout << "Col vector:\n" << cv << std::endl;
-
-    std::cout << "Row matrix:\n" << r << std::endl;
-    std::cout << "Row vector:\n" << rv << std::endl;
-
-    std::cout << "Colmajor mult m * cv:\n" << c * cv << std::endl;
-
-    // std::cout << "Rowmajor mult: " << r * rv << std::endl; // << INVALID
-    std::cout << "Rowmajor mult rv * m: " << rv * r << std::endl;
-    std::cout << "Rowmajor mult m * cv:\n" << r * cv << std::endl;
-
-}
-
 #pragma region slice_matrix/chip_matrix
 
 template<typename FP = double>
@@ -237,11 +214,6 @@ PYBIND11_MODULE(slice, m) {
            slice_vector
            chip
     )pbdoc";
-
-
-    m.def("check_eigen_row_col_mult", &check_eigen_row_col_mult, R"pbdoc(
-        ....
-    )pbdoc");
 
 
     m.def("slice_vector", py::overload_cast<const TensorMapC<float, 2>&>(&slice_vector<float>), R"pbdoc(
