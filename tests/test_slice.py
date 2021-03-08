@@ -9,7 +9,7 @@ import unittest
 import numpy as np
 import psutil
 
-class Test_slice_matrix():#unittest.TestCase):
+class Test_slice_matrix(unittest.TestCase):
 	def setUpClass():
 		Test_slice_matrix.rng = np.random.default_rng()
 
@@ -37,7 +37,7 @@ class Test_slice_matrix():#unittest.TestCase):
 		N = 100
 
 		T = self.gen_random_tensor((N, N, N))
-		T_out = slice.slice(T)
+		T_out = slice.slice_matrix(T)
 
 		assert np.allclose(T, T_out), 'slice_matrix<double, 3> failed'
 
@@ -45,7 +45,7 @@ class Test_slice_matrix():#unittest.TestCase):
 		N = 100
 
 		T = self.gen_random_tensor((N, 3, 5))
-		T_out = slice.slice(T)
+		T_out = slice.slice_matrix(T)
 
 		assert np.allclose(T, T_out), 'slice_matrix<double, 3> failed'
 
@@ -53,7 +53,7 @@ class Test_slice_matrix():#unittest.TestCase):
 		N = 10
 
 		T = self.gen_random_tensor((N, 31, 18))
-		T_out = slice.slice(T)
+		T_out = slice.slice_matrix(T)
 
 		assert np.allclose(T, T_out), 'slice_matrix<double, 3> failed'
 
@@ -61,7 +61,7 @@ class Test_slice_matrix():#unittest.TestCase):
 		N = 10
 
 		T = self.gen_random_tensor((N, 3, 4, 5))
-		T_out = slice.slice(T)
+		T_out = slice.slice_matrix(T)
 
 		assert np.allclose(T, T_out), 'slice_matrix<double, 4> failed'
 
@@ -71,7 +71,7 @@ class Test_slice_matrix():#unittest.TestCase):
 		T = self.gen_random_tensor((N, 3, 4, 5, 7))
 
 		t = time.time()
-		T_out = slice.slice(T)
+		T_out = slice.slice_matrix(T)
 		#print('\n\n%f' % (time.time() - t))
 
 		assert np.allclose(T, T_out), 'slice_matrix<double, 5> failed'
@@ -81,7 +81,7 @@ class Test_slice_matrix():#unittest.TestCase):
 
 		T = self.gen_random_tensor((N, 3, 4, 5, 7))
 		t = time.time()
-		T_out = slice.chip(T)
+		T_out = slice.chip_matrix(T)
 		#print('\n\n%f' % (time.time() - t))
 
 		assert np.allclose(T, T_out), 'chip-slice_matrix<double, 5> failed'
@@ -92,7 +92,7 @@ class Test_slice_matrix():#unittest.TestCase):
 		for r in range(3, 5):
 			for i in range(N):
 				T = self.gen_randomized_tensor(rank=r, max_dims=33)
-				T_out = slice.slice(T)
+				T_out = slice.slice_matrix(T)
 				assert np.allclose(T, T_out), 'slice_matrix<double, %i> failed on random tensor.' % r
 
 
