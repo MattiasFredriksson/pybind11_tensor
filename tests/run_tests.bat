@@ -1,3 +1,4 @@
-python test_pybind11.py
+python -m unittest discover . -v
+
 
 PAUSE

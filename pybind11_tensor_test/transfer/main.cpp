@@ -144,7 +144,7 @@ std::vector<Eigen::Tensor<FP, 3, 1>*> add_self_vector(const std::vector<Eigen::T
     return arr;
 }
 
-PYBIND11_MODULE(pybind11_tensor_test, m) {
+PYBIND11_MODULE(transfer, m) {
     m.doc() = R"pbdoc(
         Python module to implement test functions for pybind11_eigen_tensor.h
         -----------------------
