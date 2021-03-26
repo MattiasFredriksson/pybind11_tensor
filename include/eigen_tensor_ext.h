@@ -53,6 +53,16 @@ namespace tensorial {
 	template<typename FP = double, int width = Eigen::Dynamic>
 	using Matrix = MatrixNN<FP, width, width>;
 
+
+
+	template<typename FP = double>
+	using MatrixMapN2 = Eigen::Map<MatrixN2<FP>>;
+	template<typename FP = double>
+	using MatrixMapN3 = Eigen::Map<MatrixN3<FP>>;
+	template<typename FP = double>
+	using MatrixMapN4 = Eigen::Map<MatrixN4<FP>>;
+
+
 	template<typename FP = double>
 	using MapN2 = Eigen::Map<Eigen::Matrix<FP, Eigen::Dynamic, 2, Eigen::RowMajor>>;
 	template<typename FP = double>
