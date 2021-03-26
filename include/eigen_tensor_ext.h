@@ -546,6 +546,20 @@ using InnerTStride = Eigen::Stride<1, Eigen::Dynamic>;
 #pragma region Helpers
 
 	/*
+	*	Verify the number of dimensions in given rank dimension match.
+	*/
+	template <typename T0>
+	void assert_rank_dimension(const T0& t, int rank, int dimension) {
+
+		if (t.dimension(rank) != dimension) {
+			std::ostringstream buf;
+			buf << "Expected tensor argument to be of dimension " << dimension << " in rank dimension " << rank << ", was " << t.dimension(rank);
+			buf << " for tensor argument with shape (" << t.dimensions() << ").";
+			throw std::invalid_argument(buf.str());
+		}
+	}
+
+	/*
 	*	Verify the number of dimensions within the given rank of the tensor arguments match.
 	*/
 	template <typename T0, typename T1>
