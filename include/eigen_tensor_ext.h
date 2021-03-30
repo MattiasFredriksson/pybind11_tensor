@@ -573,7 +573,7 @@ using InnerTStride = Eigen::Stride<1, Eigen::Dynamic>;
 	*	Verify the number of dimensions within the given rank of the tensor arguments match.
 	*/
 	template <typename T0, typename T1>
-	void assert_rank_dimension(const T0& t0, const T1& t1, int rank) {
+	void assert_rank_dimension_match(const T0& t0, const T1& t1, int rank) {
 
 		if (t0.dimension(rank) != t1.dimension(rank)) {
 			std::ostringstream buf;
@@ -586,7 +586,7 @@ using InnerTStride = Eigen::Stride<1, Eigen::Dynamic>;
 	*	Verify the number of dimensions within the given rank of the tensor arguments match.
 	*/
 	template <typename T0, typename T1>
-	void assert_rank_dimension(const T0& t0, const T1& t1, int rank0, int rank1) {
+	void assert_rank_dimension_match(const T0& t0, const T1& t1, int rank0, int rank1) {
 
 		if (t0.dimension(rank0) != t1.dimension(rank1)) {
 			std::ostringstream buf;
