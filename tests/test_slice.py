@@ -64,7 +64,7 @@ class Test_slice_matrix(unittest.TestCase):
 		T_out = slice.slice_matrix(T)
 
 		assert np.allclose(T, T_out), 'slice_matrix<double, 4> failed'
-
+		
 	def test_F_slice_Nx3x5x4x7(self):
 		N = 10000
 
@@ -75,8 +75,25 @@ class Test_slice_matrix(unittest.TestCase):
 		#print('\n\n%f' % (time.time() - t))
 
 		assert np.allclose(T, T_out), 'slice_matrix<double, 5> failed'
+		
+	def test_G_slice_for_range_Nx13x5(self):
+		N = 100
 
-	def test_G_chip_Nx3x5x4x7(self):
+		T = self.gen_random_tensor((N, 13, 5))
+		T_out = slice.slice_matrix_for_range(T)
+		
+		assert np.allclose(T, T_out), 'slice_for_range_matrix<double, 4> failed'
+
+	def test_H_slice_for_range_Nx3x5x4(self):
+		N = 10
+
+		T = self.gen_random_tensor((N, 3, 4, 5))
+		T_out = slice.slice_matrix_for_range(T)
+		
+		assert np.allclose(T, T_out), 'slice_for_range_matrix<double, 4> failed'
+
+
+	def test_I_chip_Nx3x5x4x7(self):
 		N = 10000
 
 		T = self.gen_random_tensor((N, 3, 4, 5, 7))
@@ -86,7 +103,7 @@ class Test_slice_matrix(unittest.TestCase):
 
 		assert np.allclose(T, T_out), 'chip-slice_matrix<double, 5> failed'
 
-	def test_H_slice_Random(self):
+	def test_J_slice_Random(self):
 		N = 1000
 
 		for r in range(3, 5):
@@ -134,7 +151,7 @@ class Test_slice_vector(unittest.TestCase):
 		T = self.gen_random_tensor((N, 5))
 		T_out = slice.slice_vector(T)
 
-		assert np.allclose(T, T_out), 'slice_matrix<double, 2> failed'
+		assert np.allclose(T, T_out), 'slice_vector<double, 2> failed'
 
 	def test_C_slice_NxNxN(self):
 		N = 100
@@ -150,7 +167,7 @@ class Test_slice_vector(unittest.TestCase):
 		T = self.gen_random_tensor((N, 3, 5))
 		T_out = slice.slice_vector(T)
 
-		assert np.allclose(T, T_out), 'slice_matrix<double, 3> failed'
+		assert np.allclose(T, T_out), 'slice_vector<double, 3> failed'
 
 	def test_E_slice_NxNxNxN(self):
 		N = 25
@@ -166,12 +183,12 @@ class Test_slice_vector(unittest.TestCase):
 		T = self.gen_random_tensor((N, 4, 3, 5))
 		T_out = slice.slice_vector(T)
 
-		assert np.allclose(T, T_out), 'slice_matrix<double, 4> failed'
+		assert np.allclose(T, T_out), 'slice_vector<double, 4> failed'
 
 	def test_G_slice_NxNxNxNxN(self):
 		N = 10
 
-		T = self.gen_random_tensor([N]*5)
+		T = self.gen_random_tensor([N] * 5)
 		T_out = slice.slice_vector(T)
 
 		assert np.allclose(T, T_out), 'slice_vector<double, 5> failed'

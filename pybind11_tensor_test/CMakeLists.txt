@@ -3,6 +3,10 @@
 cmake_minimum_required (VERSION 3.8)
 
 # Python dll output: pybind11_tensor_test
-add_subdirectory ("pybind11")
+
+# External durectories
+find_package(pybind11)
+find_package(Eigen3)
+
 add_subdirectory ("transfer")
 add_subdirectory ("slice")
