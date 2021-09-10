@@ -3,7 +3,7 @@ Simple header-only library for exposing Eigen::Tensors to python within C++ pybi
 
 # Alpha version
 
-The supplied code is a poorly tested alpha version, but it should provide a simple pybind11 extension that can serve as a starting point when using the pybind11 and Eigen libraries. Below is a short description over how the type_casters can be used and specifics regarding the type converions.
+Code supplied is WIP and tests are limited, but it should provide a simple pybind11 extension that can serve as a starting point when using the pybind11 and Eigen libraries. Following sections contain a a short description over how type_casters provided in include/pybind11_eigen_tensor.h behave when casting between eigen and python types.
 
 # Implemented type_caster<>
 
