@@ -13,6 +13,9 @@
 #pragma region Eigen alias
 namespace tensorial {
 
+	using EigenStride = Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>;
+	using InnerTStride = Eigen::Stride<1, Eigen::Dynamic>;
+
 	// Tensor alias
 	template <typename FP, int rank>
 	using Tensor = Eigen::Tensor<FP, rank, Eigen::RowMajor>;
@@ -69,6 +72,8 @@ namespace tensorial {
 	using MatrixMapN4 = Eigen::Map<MatrixN4<FP>>;
 	template <typename FP = double>
 	using MatrixMapNN = Eigen::Map<MatrixNN<FP>>;
+	template <typename FP = double>
+	using MatrixMapNNC = Eigen::Map<const MatrixNN<FP>, Eigen::RowMajor, EigenStride>;
 
 	template <typename FP = double>
 	using MatrixRefN2 = Eigen::Ref<MatrixN2<FP>>;
@@ -322,9 +327,6 @@ namespace tensorial {
 
 #pragma endregion
 
-	using EigenStride = Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>;
-	using InnerTStride = Eigen::Stride<1, Eigen::Dynamic>;
-
 #pragma region slice row major column vector
 
 	/**
@@ -394,36 +396,22 @@ namespace tensorial {
 #pragma region slice row major matrix
 
 	/**
-	 * <summary>Get a row major matrix slice (subtensor) from a row major
-	 * tensor.</summary> <param name="tensor"> Row major tensor of rank N.</param>
-	 * <param name="slice_offsets"> Offset indices for the subtensor within the
-	 * first N-2 rank dimensions.</param> <returns>A mapped matrix view of the
-	 * subtensor slice.</returns>
+	 * <summary>Get a row major matrix slice (subtensor) from a row major tensor.</summary>
+	 * <param name="tensor"> Row major tensor of rank N.</param>
+	 * <param name="slice_offsets"> Offset indices for the subtensor within the first N-2 rank dimensions.</param>
+	 * <returns>A mapped matrix view of the subtensor slice.</returns>
 	 */
 	template <typename TensorType,
 		typename... Ix,
-		std::enable_if_t<
-		std::conjunction<
-		is_eigen_row_major_tensor<TensorType>,
-		std::negation<is_eigen_mutable_tensor<TensorType>>>::value,
-		int> = 0>
-		Eigen::Map<const Eigen::Matrix<typename TensorType::Scalar,
-		Eigen::Dynamic,
-		Eigen::Dynamic,
-		Eigen::RowMajor>,
-		Eigen::RowMajor,
-		EigenStride>
-		slice_matrix(
-			TensorType& tensor,
-			typename Ix... slice_offset) {  // slice_offsets[TensorType::Dimensions - 2]
+		std::enable_if_t<std::conjunction<is_eigen_row_major_tensor<TensorType>,
+		std::negation<is_eigen_mutable_tensor<TensorType>>>::value, int> = 0>
+		MatrixMapNNC<typename TensorType::Scalar>
+		slice_matrix(TensorType& tensor, typename Ix... slice_offset) {
 		static_assert(TensorType::Layout == Eigen::RowMajor,
 			"Invalid tensor layout type, expected tensor to be row major.");
 		static_assert(
 			std::size_t{ sizeof...(Ix) } == TensorType::NumIndices - 2,
-			"Incorrect number of indices passed to slice function.");  //, expected "
-																	   //+
-																	   // std::to_string(TensorType::NumIndices
-																	   //- 2));
+			"Incorrect number of indices passed to slice function.");  // expects TensorType::NumIndices - 2 indices
 		Eigen::Index d1 = tensor.dimension(TensorType::NumIndices - 2);
 		Eigen::Index d2 = tensor.dimension(TensorType::NumIndices - 1);
 		EigenStride stride(d2, 1);
@@ -601,41 +589,54 @@ namespace tensorial {
 #pragma region tensoriterator
 
 	/**
-	 * <summary>Iterator providing access to subtensors along the first rank
-	 *			dimension of a dense tensor.
+	 * <summary>Iterator providing access to subtensors along the first rank dimension of a dense tensor type.
 	 * </summary>
 	 */
 	template <typename TensorType>
 	struct tensoriterator {
+		static_assert(is_mappable_tensor<TensorType>); /* Dense type */
 	public:
-		// Todo: implement begin() end()
 		using Scalar = typename TensorType::Scalar;
 		static const int Rank = TensorType::NumIndices;
 
 		static const bool is_const_tensor =
 			std::is_const<typename eigen_nested_type<TensorType>::type>::value;
 
-		// Return Tensor
-		using ITensor = typename std::conditional<
-			std::is_const<typename eigen_nested_type<TensorType>::type>::value,
-			typename TensorMapC<Scalar, Rank - 1>,
-			typename TensorMap<Scalar, Rank - 1>>::type;
-
-		// Nested dense type
+		// Dense type
 		using DenseTensorType = typename std::conditional<
 			std::is_const<typename eigen_nested_type<TensorType>::type>::value,
 			typename const Tensor<Scalar, Rank>,
 			typename Tensor<Scalar, Rank>>::type;
 
+		// Mapped tensor type
+		using MapTensorT = typename std::conditional<
+			std::is_const<typename eigen_nested_type<TensorType>::type>::value,
+			typename TensorMapC<Scalar, Rank>,
+			typename TensorMap<Scalar, Rank>>::type;
+
+		// Subtensor type
+		using SubTensorT = typename std::conditional<
+			std::is_const<typename eigen_nested_type<TensorType>::type>::value,
+			typename TensorMapC<Scalar, Rank - 1>,
+			typename TensorMap<Scalar, Rank - 1>>::type;
+
+
+		// Parent type
+		using ParentTensorT = typename std::conditional<
+			std::is_const<typename eigen_nested_type<TensorType>::type>::value,
+			typename TensorMapC<Scalar, Rank + 1>,
+			typename TensorMap<Scalar, Rank + 1>>::type;
+
+
 	private:
-		/* Reference tensor. */
-		TensorType m_tensor;
+		/* Mapped tensor. */
+		MapTensorT m_tensor;
 		Eigen::Index m_stride;
 		Eigen::array<Eigen::DenseIndex, Rank - 1> m_shape;
 
 		void init() {
 			assert(this->m_stride == 1);
-			// Determine shape
+			// Store subtensor shape
 			for (size_t i = 1; i < Rank; i++) {
 				Eigen::Index d = m_tensor.dimension(i);
 				this->m_shape[i - 1] = d;
@@ -649,27 +650,29 @@ namespace tensorial {
 		 * <summary>RH constructor == non-reference, non-dense constructor. </summary>
 		 */
 		tensoriterator(TensorType&& tensor)
-			: m_tensor(TensorType(tensor.data(), tensor.dimensions())), m_stride(1) {
-			init();
-		}
-		/*
-		 * <summary>LH constructor == reference constructors (dense and non-dense).
-		 * </summary>
-		 */
-		tensoriterator(TensorType& tensor)
-			: m_tensor(TensorType(tensor.data(), tensor.dimensions())), m_stride(1) {
-			init();
-		}
-		tensoriterator(DenseTensorType& tensor)
-			: m_tensor(TensorType(tensor.data(), tensor.dimensions())), m_stride(1) {
+			: m_tensor(tensor.data(), tensor.dimensions()), m_stride(1) {
 			init();
 		}
 
 		/*
-		 * <summary>Get the size of the iterated dimension. TODO: RENAME
-		 * count</summary>
+		 * <summary>LH constructor == reference constructors (dense and non-dense).</summary>
 		 */
-		size_t size() { return m_tensor.dimension(0); }
+		tensoriterator(TensorType& tensor)
+			: m_tensor(tensor.data(), tensor.dimensions()), m_stride(1) {
+			init();
+		}
+
+		/*
+		 * <summary>Get the size of the iterated dimension. </summary>
+		 */
+		size_t count() { return m_tensor.dimension(0); }
+		/*
+		 * <summary> Deprecated Get the size of the iterated dimension.</summary>
+		 */
+		size_t size() {
+			static_assert(false);
+			return count();
+		}
 
 
 
@@ -705,27 +708,27 @@ namespace tensorial {
 
 		private:
 			/* View over data in the reference tensor. */
-			ITensor m_tensor;
+			SubTensorT m_tensor;
 
 		public:
-			subtensor(ITensor tensor) : m_tensor(tensor) {}
+			subtensor(SubTensorT tensor) : m_tensor(tensor) {}
 
 			/* Implicit tensor conversion
 			*/
-			operator ITensor& () { return this->m_tensor; }
-			operator const ITensor& () const { return this->m_tensor; }
+			operator SubTensorT& () { return this->m_tensor; }
+			operator const SubTensorT& () const { return this->m_tensor; }
 
 			/* Access tensor reference.
 			*/
-			ITensor& ref() { return this->m_tensor; }
-			const ITensor& ref() const { return this->m_tensor; }
-			ITensor& tensor() { return this->m_tensor; }
-			const ITensor& tensor() const { return this->m_tensor; }
+			SubTensorT& ref() { return this->m_tensor; }
+			const SubTensorT& ref() const { return this->m_tensor; }
+			SubTensorT& tensor() { return this->m_tensor; }
+			const SubTensorT& tensor() const { return this->m_tensor; }
 
 #pragma region iterator compabatible functions
 
 			subtensor operator++() {
-				new (&this->m_tensor) ITensor(m_tensor.data() + m_tensor.size(), m_tensor.dimensions());
+				new (&this->m_tensor) SubTensorT(m_tensor.data() + m_tensor.size(), m_tensor.dimensions());
 				return *this;
 			}
 
@@ -743,7 +746,7 @@ namespace tensorial {
 
 #pragma endregion
 
-#pragma region Tensor forward functions
+#pragma region forward Eigen::Tensor accessors
 
 			Eigen::Index size() {
 				return m_tensor.size();
@@ -755,13 +758,17 @@ namespace tensorial {
 
 #pragma endregion
 
-			/* Tensor assignment
+			/* assign the tensor to the underlying buffer.
 			*/
-			subtensor& operator=(const ITensor& assignee) noexcept {
+			subtensor& operator=(const SubTensorT& assignee) noexcept {
 				if (assignee.data() == this->data())
 					return *this;
 				this->m_tensor = assignee;
 				return *this;
+			}
+
+			tensoriterator<SubTensorT> iter() {
+				return tensoriterator<SubTensorT>(this->tensor());
 			}
 
 #pragma region subtensor : copy & assign
@@ -773,13 +780,13 @@ namespace tensorial {
 			subtensor& operator=(const subtensor& other) noexcept {
 				if (&other == this)
 					return *this;
-				new (&this->m_tensor) ITensor(other.m_tensor);
+				new (&this->m_tensor) SubTensorT(other.m_tensor);
 				return *this;
 			}
 			subtensor& operator=(subtensor&& other) noexcept {
 				if (&other == this)
 					return *this;
-				new (&this->m_tensor) ITensor(other.m_tensor);
+				new (&this->m_tensor) SubTensorT(other.m_tensor);
 				return *this;
 			}
 
@@ -799,41 +806,43 @@ namespace tensorial {
 			return tensoriterator::subtensor(this->operator()(index));
 		}
 		/**
-		 * <summary>Get a view of the subtensor in the first rank dimension of the
-		 * reference tensor.</summary> <param name="index">Index of the subtensor
-		 * within the first rank dimension.</param> <returns>View of the
-		 * subtensor.</returns>
+		 * <summary>Get a view of the subtensor in the first rank dimension of the reference tensor.</summary>
+		 * <param name="index">Index of the subtensor within the first rank dimension.</param>
+		 * <returns>View over indexed subtensor.</returns>
 		 */
-		ITensor operator()(const Eigen::Index index) const {
-			return ITensor(m_tensor.data() + index * this->m_stride, this->m_shape);
+		SubTensorT operator()(const Eigen::Index index) const {
+			return SubTensorT(m_tensor.data() + index * this->m_stride, this->m_shape);
 		}
 
 		tensoriterator::subtensor begin() {
 			return tensoriterator::subtensor(this->operator()(0));
 		}
+
 		tensoriterator::subtensor end() {
 			return tensoriterator::subtensor(this->operator()(m_tensor.dimension(0)));
 		}
-
 
 #pragma region copy & assign
 
 		tensoriterator(const tensoriterator& o)
 			: m_tensor(o.tensor), m_stride(o.m_stride), m_shape(o.m_shape) {}
+
 		tensoriterator(tensoriterator&& o)
 			: m_tensor(std::move(o.m_tensor)),
 			m_stride(o.m_stride),
 			m_shape(std::move(o.m_shape)) {}
 
 		tensoriterator& operator=(tensoriterator& other) = delete;
+
 		tensoriterator& operator=(const tensoriterator& other) noexcept {
 			if (&other == this)
 				return *this;
-			new (&this->m_tensor) ITensor(other.m_tensor);
+			new (&this->m_tensor) SubTensorT(other.m_tensor);
 			this->m_stride = other.m_stride;
 			this->m_shape = other.m_shape;
 			return *this;
 		}
+
 		tensoriterator& operator=(tensoriterator&& other) noexcept {
 			if (&other == this)
 				return *this;

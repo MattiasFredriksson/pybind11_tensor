@@ -23,7 +23,7 @@ Tensor<FP, 3> slice_matrix(const TensorMapC<FP, 3>& tensor) {
 	Tensor<FP, 3> result(dims);
 
 	// Update
-	tensoriterator<TensorMap<FP, 3>> T(result);
+	tensoriterator T(result);
 	for (long long int i = 0; i < (long long int)dims[0]; i++) {
 		MatrixNN<FP> mat(slice_matrix(tensor, i));
 
@@ -57,13 +57,13 @@ Tensor<FP, 4> slice_matrix(const TensorMapC<FP, 4>& tensor) {
 	Tensor<FP, 4> result(dims);
 
 	// Update
-	tensoriterator<TensorMap<FP, 4>> T(result);
+	tensoriterator T(result);
 	for (long long int j = 0; j < (long long int)dims[0]; j++) {
-		tensoriterator<TensorMap<FP, 3>> subtensor(T(j));
+		tensoriterator subtensor(T(j));
 		for (long long int i = 0; i < (long long int)dims[1]; i++) {
 			MatrixNN<FP> mat(slice_matrix(tensor, j, i));
 
-			subtensor[i].tensor() = TensorMap<FP, 2>(mat.data(), dims[2], dims[3]);
+			subtensor[i] = TensorMap<FP, 2>(mat.data(), dims[2], dims[3]);
 			//subtensor[i].ref() = TensorMap<FP, 2>(mat.data(), dims[2], dims[3]);
 			//subtensor(i) = TensorMap<FP, 2>(mat.data(), dims[2], dims[3]);
 		}
@@ -96,15 +96,15 @@ Tensor<FP, 4> slice_matrix_for_range(const TensorMapC<FP, 4>& tensor) {
 
 	// Update
 	int j = 0;
-	tensoriterator<TensorMap<FP, 4>> outer(result);
-	for (auto t0 : tensoriterator<TensorMap<FP, 4>>(result)) {
+	tensoriterator outer(result);
+	for (auto t0 : tensoriterator(result)) {
 		int i = 0;
 		if (t0.data() != (*outer[j]).data()) {
 			throw std::runtime_error("Missmatching pointers at outer iteration " + std::to_string(j));
 		}
 
-		tensoriterator<TensorMap<FP, 3>> inner(t0);
-		for (auto t1 : tensoriterator<TensorMap<FP, 3>>(t0)) {
+		tensoriterator inner{ t0.iter() };
+		for (auto t1 : t0.iter()) {
 			if (t1.data() != (*inner[i]).data()) {
 				throw std::runtime_error("Missmatching pointers at inner iteration " + std::to_string(i));
 			}
@@ -126,11 +126,11 @@ Tensor<FP, 5> slice_matrix(const TensorMapC<FP, 5>& tensor) {
 	Tensor<FP, 5> result(dims);
 
 	// Update
-	tensoriterator<TensorMap<FP, 5>> T(result);
+	tensoriterator T(result);
 	for (long long int k = 0; k < (long long int)dims[0]; k++) {
-		tensoriterator<TensorMap<FP, 4>> subtensor(T(k));
+		tensoriterator subtensor(T(k));
 		for (long long int j = 0; j < (long long int)dims[1]; j++) {
-			tensoriterator<TensorMap<FP, 3>> subsubtensor(subtensor(j));
+			tensoriterator subsubtensor(subtensor(j));
 			for (long long int i = 0; i < (long long int)dims[2]; i++) {
 				MatrixNN<FP> mat(slice_matrix(tensor, k, j, i));
 
@@ -178,7 +178,7 @@ Tensor<FP, 2> slice_vector(const TensorMapC<FP, 2>& tensor) {
 	Tensor<FP, 2> result(dims);
 
 	// Update
-	tensoriterator<TensorMap<FP, 2>> T(result);
+	tensoriterator T(result);
 	for (long long int i = 0; i < (long long int)dims[0]; i++) {
 		Vector<FP> vec(slice_vector(tensor, i));
 		T(i) = vector2tensor(vec);
@@ -193,9 +193,9 @@ Tensor<FP, 3> slice_vector(const TensorMapC<FP, 3>& tensor) {
 	Tensor<FP, 3> result(dims);
 
 	// Update
-	tensoriterator<TensorMap<FP, 3>> T(result);
+	tensoriterator T(result);
 	for (long long int j = 0; j < (long long int)dims[0]; j++) {
-		tensoriterator<TensorMap<FP, 2>> subtensor(T(j));
+		tensoriterator subtensor(T(j));
 		for (long long int i = 0; i < (long long int)dims[1]; i++) {
 			Vector<FP> vec(slice_vector(tensor, j, i));
 			subtensor(i) = vector2tensor(vec);
@@ -210,11 +210,11 @@ Tensor<FP, 4> slice_vector(const TensorMapC<FP, 4>& tensor) {
 	Tensor<FP, 4> result(dims);
 
 	// Update
-	tensoriterator<TensorMap<FP, 4>> T(result);
+	tensoriterator T(result);
 	for (long long int j = 0; j < (long long int)dims[0]; j++) {
-		tensoriterator<TensorMap<FP, 3>> subtensor(T(j));
+		tensoriterator subtensor(T(j));
 		for (long long int i = 0; i < (long long int)dims[1]; i++) {
-			tensoriterator<TensorMap<FP, 2>> subsubtensor(subtensor(i));
+			tensoriterator subsubtensor(subtensor(i));
 			for (long long int l = 0; l < (long long int)dims[2]; l++) {
 				Vector<FP> vec(slice_vector(tensor, j, i, l));
 				subsubtensor(l) = vector2tensor(vec);
@@ -229,14 +229,15 @@ Tensor<FP, 5> slice_vector(const TensorMapC<FP, 5>& tensor) {
 	auto dims = tensor.dimensions();
 	Tensor<FP, 5> result(dims);
 
+
 	// Update
-	tensoriterator<TensorMap<FP, 5>> T(result);
+	tensoriterator T(result);
 	for (long long int k = 0; k < (long long int)dims[0]; k++) {
-		tensoriterator<TensorMap<FP, 4>> subtensor(T(k));
+		tensoriterator subtensor(T(k));
 		for (long long int j = 0; j < (long long int)dims[1]; j++) {
-			tensoriterator<TensorMap<FP, 3>> subsubtensor(subtensor(j));
+			tensoriterator subsubtensor(subtensor(j));
 			for (long long int i = 0; i < (long long int)dims[2]; i++) {
-				tensoriterator<TensorMap<FP, 2>> subx3tensor(subsubtensor(i));
+				tensoriterator subx3tensor(subsubtensor(i));
 				for (long long int l = 0; l < (long long int)dims[3]; l++) {
 					Vector<FP> vec(slice_vector(tensor, k, j, i, l));
 					subx3tensor(l) = vector2tensor(vec);
