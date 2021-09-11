@@ -1,9 +1,9 @@
 # pybind11_tensor
-Simple header-only library for exposing Eigen::Tensors to python within C++ pybind11 modules. Implementation is similar to the Eigen::Matrix type_casters available in the pybind11 distribution but handles tensor Map and Ref differently. The type_caster implementations are available in the header in the include/ directory. The alpha version support the (latest) stable eigen release 3.3.9.
+Simple header-only library for exposing Eigen::Tensors to python within C++ pybind11 modules. Implementation is similar to the Eigen::Matrix type_casters available in the pybind11 distribution but handles tensor Map and Ref differently. Relevant type_caster implementations are available in [include/pybind11_eigen_tensor.h](../include/pybind11_eigen_tensor.h). The alpha version support the (latest) stable eigen release 3.3.9.
 
 # Alpha version
 
-Code supplied is WIP and tests are limited, but it should provide a simple pybind11 extension that can serve as a starting point when using the pybind11 and Eigen libraries. Following sections contain a a short description over how type_casters provided in include/pybind11_eigen_tensor.h behave when casting between eigen and python types.
+Code supplied is WIP and tests are limited, but it should provide a simple pybind11 extension that can serve as a starting point when using the pybind11 and Eigen libraries. Following sections contain a a short description over how provided type_casters behave when casting between eigen and python types.
 
 # Implemented type_caster<>
 
