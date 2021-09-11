@@ -9,7 +9,7 @@ Code supplied is WIP and tests are limited, but it should provide a simple pybin
 
 ## Eigen::Tensor
 
-Intended behavior is to be identical to the dense matrix type_caster. Implementation is based on the dense matrix type_caster distributed with the pybind11 release version 2.6.1. Passing an Eigen::Tensor to C++ side ensure the data buffer is copied, passing tensor arguments to python is flexible and depend on the return_value_policy argument specified for the function binding.
+Intended behavior is to be identical to the dense matrix type_caster and the implementation is based on the dense matrix type_caster provided in the pybind11 package. Passing an Eigen::Tensor to C++ side ensure the data buffer is copied, passing tensor arguments to python is flexible and depend on the return_value_policy argument specified for the function binding.
   
 Passing dense tensor types back to python without copying requires a pointer argument with return_value_policy::take_ownership to avoid implicit copies. Options such as rvalues with move is only valid once move operators is properly supported in the eigen library. Behavior can be assumed to follow the pattern:
 
