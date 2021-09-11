@@ -3,7 +3,7 @@ Simple header-only library for exposing Eigen::Tensors to python within C++ pybi
 
 # Alpha version
 
-The supplied code is a poorly tested alpha version, but it should provide a simple pybind11 extension that can serve as a starting point when using the pybind11 and Eigen libraries. Below is a short description over how the type_casters can be used and specifics regarding the type converions.
+Code supplied is WIP and tests are limited, but it should provide a simple pybind11 extension that can serve as a starting point when using the pybind11 and Eigen libraries. Following sections contain a a short description over how type_casters provided in include/pybind11_eigen_tensor.h behave when casting between eigen and python types.
 
 # Implemented type_caster<>
 
@@ -11,27 +11,27 @@ The supplied code is a poorly tested alpha version, but it should provide a simp
 
 Intended behavior is to be identical to the dense matrix type_caster. Implementation is based on the dense matrix type_caster distributed with the pybind11 release version 2.6.1. Passing an Eigen::Tensor to C++ side ensure the data buffer is copied, passing tensor arguments to python is flexible and depend on the return_value_policy argument specified for the function binding.
   
-To pass a dense tensor back to python without copying requires a pointer argument with return_value_policy::take_ownership to avoid an implicit copy. Options such as rvalues with move is only valid once move operators is properly supported in the eigen library. Behavior then can be assumed to follow the pattern of:
+Passing dense tensor types back to python without copying requires a pointer argument with return_value_policy::take_ownership to avoid implicit copies. Options such as rvalues with move is only valid once move operators is properly supported in the eigen library. Behavior can be assumed to follow the pattern:
 
 **Python** -> **Copy** -> **C++** -> **(Copy)** -> **Python**
 
-Passing dense tensor arguments provide clear separations between Python and C++ but the behavior may not always be preferable. Some options such as to avoid copying the data buffer when passing arguments from Python to C++ is then to use TensorMap<> or TensorRef<> arguments.
+Passing dense tensor arguments provide clear separations between Python and C++ but the behavior is not always preferable. To avoid copying data use the TensorMap<> or TensorRef<> types instead.
 
 ## Eigen::TensorMap
 
-Supports binding of input arguments. The underlying idea for using the TensorMap type when the data pattern for calling a C++ function is:
+Supports binding input arguments passed to C++ side for native types. Intended use for a TensorMap is to pass a mutable view over a dense Python buffer to a C++ function:
 
 **Python** -> **C++** -> **Python**
 
-Changes are then applied directly to the exposed data buffer. The use case is then to provide a function which perform inplace calculations or when exposing a buffer that is either enforced to be memory continous or expected to be so.
+Since TensorMap<> expects either a C or Fortran contiguous (dense) buffer of a specific native type, it is not always possible to provide direct access to the underlying buffer. Therefor TensorMaps should only be used to perform inplace calculations, or to expose buffers that is of a known native type and expected to be memory continous. In all other cases it should be preferable to return a dense Eigen::Tensor to make functions safer and behave consistently. 
 
 ### Python -> C++
 
-Attempts to pass the argument without copying the underlying buffer by mapping it to a TensorMap. For mapping to be possible however, the numpy array must be memory continous and exactly match the input argument (i.e. scalar type missmatch is not possible). If the argument is not a match, the data is copied and a callback is called when the the C++ function terminates mapping any changes back to the original buffer. To avoid the callback updating the original buffer ensure the input tensor type is: const Eigen::TensorMap<const Tensor<...>>.
+Attempts to pass the argument without copying by wrapping the data pointer using a TensorMap. If the argument passed to the function is not an exact match, data is copied and a callback is created to map changes back to the original buffer when returning to Python. To prevent the callback from updating the original buffer ensure the function argument is readonly using the following type: const Eigen::TensorMap<const Tensor<...>>.
 
 ### C++ -> Python
 
-Default behavior is to return an internal reference to the mapped buffer. Under the define PYBIND11_ET_STRICT conversion of TensorMap to numpy arrays is disallowed.
+Default behavior is to return a TensorMap<> view over the buffer with no regard to its lifetime, return policy reference_internal is used. Under the define PYBIND11_ET_STRICT conversion of TensorMap to numpy arrays is disallowed.
 
 ## Eigen::TensorRef
 
