@@ -59,6 +59,6 @@ namespace tensorial {
 
 	// Determine if tensor is a mappable dense type (Tensor or TensorMap)
 	template <typename T>
-	constexpr bool  is_mappable_tensor = is_eigen_tensor<T> || is_eigen_tensor_map<T>::value;
+	using is_eigen_mappable_tensor = std::bool_constant < is_eigen_tensor<T> || is_eigen_tensor_map<T>::value>;
 
 }
