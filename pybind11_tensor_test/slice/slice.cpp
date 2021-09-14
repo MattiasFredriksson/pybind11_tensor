@@ -13,6 +13,113 @@ namespace py = pybind11;
 namespace pyd = pybind11::detail;
 using namespace tensorial;
 
+template<typename FP, int rank>
+void verify_typedefs() {
+	/* TODO:
+	* 1) Check all type_traits.h
+	* 2) Make type traits consistent std::bool_constant<>
+	* 3) Move to own cpp file
+	*/
+
+	// Any tensor type
+	static_assert(is_any_eigen_tensor<Tensor<FP, rank>> == true);
+	static_assert(is_any_eigen_tensor<TensorMap<FP, rank>> == true);
+	static_assert(is_any_eigen_tensor<TensorMapC<FP, rank>> == true);
+	static_assert(is_any_eigen_tensor<TensorRef<FP, rank>> == true);
+	static_assert(is_any_eigen_tensor<TensorRefC<FP, rank>> == true);
+	static_assert(is_any_eigen_tensor<const Tensor<FP, rank>> == true);
+	static_assert(is_any_eigen_tensor<const TensorMap<FP, rank>> == true);
+	static_assert(is_any_eigen_tensor<const TensorMapC<FP, rank>> == true);
+	static_assert(is_any_eigen_tensor<const TensorRef<FP, rank>> == true);
+	static_assert(is_any_eigen_tensor<const TensorRefC<FP, rank>> == true);
+	// Not tensor
+	static_assert(is_any_eigen_tensor<int> == false);
+	static_assert(is_any_eigen_tensor<float> == false);
+	static_assert(is_any_eigen_tensor<MatrixNN<double>> == false);
+	static_assert(is_any_eigen_tensor<MatrixMapNN<double>> == false);
+	static_assert(is_any_eigen_tensor<MatrixRefNN<double>> == false);
+
+	// Dense type check
+	static_assert(is_eigen_tensor<Tensor<FP, rank>> == true);
+	static_assert(is_eigen_tensor<const Tensor<FP, rank>> == true);
+	// Nested mutable
+	static_assert(is_eigen_nested_mutable<TensorRef<FP, rank>>::value == true);
+	static_assert(is_eigen_nested_mutable<TensorMap<FP, rank>>::value == true);
+	static_assert(is_eigen_nested_mutable<TensorRefC<FP, rank>>::value == false);
+	static_assert(is_eigen_nested_mutable<TensorMapC<FP, rank>>::value == false);
+	// Mutable (inner or outer)
+	static_assert(is_eigen_mutable_tensor<Tensor<FP, rank>>::value == true);
+	static_assert(is_eigen_mutable_tensor<TensorMap<FP, rank>>::value == true);
+	static_assert(is_eigen_mutable_tensor<TensorRef<FP, rank>>::value == true);
+	static_assert(is_eigen_mutable_tensor<TensorMapC<FP, rank>>::value == false);
+	static_assert(is_eigen_mutable_tensor<TensorRefC<FP, rank>>::value == false);
+	static_assert(is_eigen_mutable_tensor<const Tensor<FP, rank>>::value == false);
+	static_assert(is_eigen_mutable_tensor<const TensorMap<FP, rank>>::value == false);
+	static_assert(is_eigen_mutable_tensor<const TensorRef<FP, rank>>::value == false);
+	static_assert(is_eigen_mutable_tensor<const TensorMapC<FP, rank>>::value == false);
+	static_assert(is_eigen_mutable_tensor<const TensorRefC<FP, rank>>::value == false);
+	// Row-major
+	static_assert(is_eigen_row_major_tensor<const Tensor<FP, rank>>::value == true);
+	static_assert(is_eigen_mappable_tensor<const Tensor<FP, rank>>::value == true);
+	static_assert(is_eigen_row_major_tensor<Tensor<FP, rank>>::value == true);
+	static_assert(is_eigen_mappable_tensor<Tensor<FP, rank>>::value == true);
+	static_assert(is_eigen_row_major_tensor<TensorMap<FP, rank>>::value == true);
+	static_assert(is_eigen_mappable_tensor<TensorMap<FP, rank>>::value == true);
+	static_assert(is_eigen_row_major_tensor<const TensorMap<FP, rank>>::value == true);
+	static_assert(is_eigen_mappable_tensor<const TensorMap<FP, rank>>::value == true);
+	static_assert(is_eigen_row_major_tensor<TensorMapC<FP, rank>>::value == true);
+	static_assert(is_eigen_mappable_tensor<TensorMapC<FP, rank>>::value == true);
+	static_assert(is_eigen_row_major_tensor<const TensorMapC<FP, rank>>::value == true);
+	static_assert(is_eigen_mappable_tensor<const TensorMapC<FP, rank>>::value == true);
+}
+template void verify_typedefs<float, 2>();
+template void verify_typedefs<double, 2>();
+template void verify_typedefs<float, 3>();
+template void verify_typedefs<double, 3>();
+
+
+/* Rank 2 tensors: special case as they are matrices.
+*/
+template<typename FP>
+void verify_slice2_types() {
+	Tensor<FP, 2> tensor({ 3,3 });
+	TensorMap<FP, 2> tensorm(tensor);
+	const Tensor<FP, 2> tensorc({ 3,3 });
+	const TensorMapC<FP, 2> tensormc(const_cast<FP*>(tensorc.data()), tensorc.dimensions());
+
+	// Const alloc checks
+	//tensormc(0) = 2; // Is invalid
+	tensormc.data()[0] = 2; // Should be invalid but isn't
+
+	auto mat_from_tens = slice_matrix(tensor);
+	auto mat_from_map = slice_matrix(tensorm);
+	auto cmat_from_tens = slice_matrix(tensorc);
+	auto cmat_from_map = slice_matrix(tensormc);
+
+	// TODO: Check equality...
+}
+template void verify_slice2_types<float>();
+template void verify_slice2_types<double>();
+
+
+template<typename FP>
+void verify_slice3_types() {
+	constexpr int rank = 3;
+	Tensor<FP, rank> tensor({ 3, 3, 3 });
+	TensorMap<FP, rank> tensorm(tensor);
+	const Tensor<FP, rank> tensorc({ 3, 3, 3 });
+	const TensorMapC<FP, rank> tensormc(const_cast<FP*>(tensorc.data()), tensorc.dimensions());
+
+	auto mat_from_tens = slice_matrix(tensor, 0);
+	auto mat_from_map = slice_matrix(tensorm, 0);
+	//auto cmat_from_tens = slice_matrix(tensorc, 0);
+	auto cmat_from_map = slice_matrix(tensormc, 0);
+
+	// TODO: Check equality...
+}
+template void verify_slice3_types<float>();
+template void verify_slice3_types<double>();
+
 
 #pragma region slice_matrix/chip_matrix
 
@@ -36,9 +143,7 @@ Tensor<FP, 3> slice_matrix(const TensorMapC<FP, 3>& tensor) {
 
 template<typename FP = double>
 Tensor<FP, 3> slice_matrix_for_range(const TensorMapC<FP, 3>& tensor) {
-
-	auto dims = tensor.dimensions();
-	Tensor<FP, 3> result(dims);
+	Tensor<FP, 3> result(tensor.dimensions());
 
 	// Update
 	int i = 0;
@@ -268,6 +373,10 @@ PYBIND11_MODULE(slice, m) {
            chip
     )pbdoc";
 
+	verify_typedefs<double, 2>();
+	verify_typedefs<double, 3>();
+	verify_slice2_types<double>();
+	verify_slice3_types<double>();
 
 	m.def("slice_vector", py::overload_cast<const TensorMapC<float, 2>&>(&slice_vector<float>), R"pbdoc(
         slice_matrix

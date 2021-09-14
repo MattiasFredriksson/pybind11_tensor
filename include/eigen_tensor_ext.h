@@ -73,7 +73,7 @@ namespace tensorial {
 	template <typename FP = double>
 	using MatrixMapNN = Eigen::Map<MatrixNN<FP>>;
 	template <typename FP = double>
-	using MatrixMapNNC = Eigen::Map<const MatrixNN<FP>, Eigen::RowMajor, EigenStride>;
+	using MatrixMapNNC = Eigen::Map<const MatrixNN<FP>, Eigen::RowMajor>;
 
 	template <typename FP = double>
 	using MatrixRefN2 = Eigen::Ref<MatrixN2<FP>>;
@@ -166,7 +166,7 @@ namespace tensorial {
 	 * untested).
 	 */
 	template <typename TensorType, typename... Ix>
-	std::int64_t tensor_offset(TensorType& t, Ix... index) {
+	std::int64_t tensor_offset(const TensorType& t, Ix... index) {
 		constexpr bool isrow = is_eigen_row_major_tensor<TensorType>::value;
 		constexpr std::int64_t N = std::int64_t{ sizeof...(Ix) };
 		constexpr std::int64_t incr = isrow ? -1 : 1;
@@ -194,7 +194,7 @@ namespace tensorial {
 		return off;
 	}
 	template <typename TensorType>
-	std::int64_t tensor_offset(TensorType& t) {
+	std::int64_t tensor_offset(const TensorType& t) {
 		/* Tensor of rank <= 2
 		*/
 		return 0;
@@ -272,22 +272,38 @@ namespace tensorial {
 	namespace intern {
 
 		template <typename TensorType>
-		inline EigenStride tensor_stride_slice_rowm_rowt(TensorType& tensor, Eigen::Index& d1, Eigen::Index& d2) {
+		inline EigenStride tensor_stride_slice_rowm_rowt(const TensorType& tensor, Eigen::Index& d1, Eigen::Index& d2) {
 			d1 = tensor.dimension(TensorType::NumIndices - 2);
 			d2 = tensor.dimension(TensorType::NumIndices - 1);
 			return EigenStride(d2, 1);
 		}
 
 		template <typename TensorType>
-		inline EigenStride tensor_stride_slice_colm_rowt(TensorType& tensor, Eigen::Index& d1, Eigen::Index& d2) {
+		inline EigenStride tensor_stride_slice_colm_rowt(const TensorType& tensor, Eigen::Index& d1, Eigen::Index& d2) {
 			Eigen::Index d1 = tensor.dimension(TensorType::NumIndices - 2);
 			Eigen::Index d2 = tensor.dimension(TensorType::NumIndices - 1);
 			return EigenStride(1, d1);
 		}
+
+		/* Slice return types
+		*/
+
+		// RR:Row-Row return types
+		template <typename TensorType>
+		using SliceRowRowMRType =
+			Eigen::Matrix<typename TensorType::Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+		template <typename TensorType>
+		using SliceMatrixRRCReturnType =
+			const Eigen::Map<const SliceRowRowMRType<TensorType>, Eigen::RowMajor, EigenStride>;
+		template <typename TensorType>
+		using SliceMatrixRRReturnType =
+			Eigen::Map<SliceRowRowMRType<TensorType>, Eigen::RowMajor, EigenStride>;
+
 	}
 
 #pragma region slice row matrix from row tensor
 
+#pragma region const
 	/**
 	 * <summary>Get a row major matrix slice (or subtensor) from a row major tensor.</summary>
 	 * <param name="tensor"> Row major tensor of rank N.</param>
@@ -300,64 +316,24 @@ namespace tensorial {
 		std::conjunction<
 		is_eigen_row_major_tensor<TensorType>,
 		is_eigen_mappable_tensor<TensorType>,
-		std::negation<is_eigen_mutable_tensor<TensorType>>
+		is_eigen_const_tensor<TensorType>
 		>::value,
 		int> = 0>
-		Eigen::Map<const Eigen::Matrix<typename TensorType::Scalar,
-		Eigen::Dynamic,
-		Eigen::Dynamic,
-		Eigen::RowMajor>,
-		Eigen::RowMajor,
-		EigenStride>
+		intern::SliceMatrixRRCReturnType<TensorType>
 		slice_matrix(TensorType& tensor, typename Ix... slice_offset) {
-		static_assert(is_eigen_mappable_tensor<TensorType>::value); // Only slice dense types.
+		// Asserts
 		static_assert(TensorType::Layout == Eigen::RowMajor,
 			"Invalid tensor layout type, expected tensor to be row major.");
 		static_assert(
 			std::size_t{ sizeof...(Ix) } == TensorType::NumIndices - 2,
-			"Incorrect number of indices passed to slice function.");  // expects TensorType::NumIndices - 2 indices
+			"Incorrect number of indices passed to slice function, expected Rank - 2.");
 		// Stride
 		Eigen::Index d1, d2;
 		EigenStride stride = intern::tensor_stride_slice_rowm_rowt(tensor, d1, d2);
 		// Offset
 		Eigen::Index offset = tensor_offset(tensor, slice_offset...);
 		// Make const
-		using DenseRowMajorMatrix = Eigen::Matrix<typename TensorType::Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-		using MappedConstDenseType = Eigen::Map<const DenseRowMajorMatrix, Eigen::RowMajor, EigenStride>;
-		return MappedConstDenseType(tensor.data() + offset, d1, d2, stride);
-	}
-
-	/**
-	 * <summary>Get a row major matrix slice (subtensor) from a row major tensor.</summary>
-	 * <param name="tensor"> Row major tensor of rank N.</param>
-	 * <param name="slice_offsets"> Offset indices for the subtensor within the first N-2 rank dimensions.</param>
-	 * <returns>A mapped matrix view of the subtensor slice.</returns>
-	 */
-	template <typename TensorType,
-		typename... Ix,
-		std::enable_if_t<
-		std::conjunction<is_eigen_row_major_tensor<TensorType>,
-		is_eigen_mappable_tensor<TensorType>,
-		is_eigen_mutable_tensor<TensorType>>::value,
-		int> = 0>
-		Eigen::Map<Eigen::Matrix<typename TensorType::Scalar,
-		Eigen::Dynamic,
-		Eigen::Dynamic,
-		Eigen::RowMajor>,
-		Eigen::RowMajor,
-		EigenStride>
-		slice_matrix(TensorType& tensor, typename Ix... slice_offset) {
-		static_assert(is_eigen_mappable_tensor<TensorType>::value); // Only slice dense types.
-
-		// Stride
-		Eigen::Index d1, d2;
-		EigenStride stride = intern::tensor_stride_slice_rowm_rowt(tensor, d1, d2);
-		// Offset
-		Eigen::Index offset = tensor_offset(tensor, slice_offset...);
-		// Make non-const
-		using DenseRowMajorMatrix = Eigen::Matrix<typename TensorType::Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-		using MappedDenseType = Eigen::Map<DenseRowMajorMatrix, Eigen::RowMajor, EigenStride>;
-		return MappedDenseType(tensor.data() + offset, d1, d2, stride);
+		return intern::SliceMatrixRRCReturnType<TensorType>(tensor.data() + offset, d1, d2, stride);
 	}
 
 	/* <summary>Get a row major matrix view from a tensor with 2 rank dimensions.< / summary>
@@ -368,29 +344,56 @@ namespace tensorial {
 		std::conjunction<
 		is_eigen_row_major_tensor<TensorType>,
 		is_eigen_mappable_tensor<TensorType>,
-		std::negation<is_eigen_mutable_tensor<TensorType>>
+		is_eigen_const_tensor<TensorType>
 		>::value,
-		int> = 0>
-		Eigen::Map<const Eigen::Matrix<typename TensorType::Scalar,
-		Eigen::Dynamic,
-		Eigen::Dynamic,
-		Eigen::RowMajor>,
-		Eigen::RowMajor,
-		EigenStride>
+		int> = 0 >
+		intern::SliceMatrixRRCReturnType<TensorType>
 		slice_matrix(TensorType& tensor) {
 		// Asserts
 		static_assert(TensorType::Layout == Eigen::RowMajor,
 			"Invalid tensor layout type, expected tensor to be row major.");
 		static_assert(TensorType::NumIndices == 2,
-			"Number of indices should match the tensor rank dimension - 2.");
-
+			"Expected tensor of rank dimension 2.");
 		// Stride
 		Eigen::Index d1, d2;
 		EigenStride stride = intern::tensor_stride_slice_rowm_rowt(tensor, d1, d2);
 		// Make const
-		using DenseRowMajorMatrix = Eigen::Matrix<typename TensorType::Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-		using MappedDenseType = Eigen::Map<const DenseRowMajorMatrix, Eigen::RowMajor, EigenStride>;
-		return MappedDenseType(tensor.data(), d1, d2, stride);
+		return intern::SliceMatrixRRCReturnType<TensorType>(tensor.data(), d1, d2, stride);
+	}
+
+#pragma endregion
+
+#pragma region non-const
+
+	/**
+	 * <summary>Get a row major matrix slice (subtensor) from a row major tensor.</summary>
+	 * <param name="tensor"> Row major tensor of rank N.</param>
+	 * <param name="slice_offsets"> Offset indices for the subtensor within the first N-2 rank dimensions.</param>
+	 * <returns>A mapped matrix view of the subtensor slice.</returns>
+	 */
+	template <typename TensorType,
+		typename... Ix,
+		std::enable_if_t<
+		std::conjunction<
+		is_eigen_row_major_tensor<TensorType>,
+		is_eigen_mappable_tensor<TensorType>,
+		is_eigen_mutable_tensor<TensorType>>::value,
+		int> = 0>
+		intern::SliceMatrixRRReturnType<TensorType>
+		slice_matrix(TensorType& tensor, typename Ix... slice_offset) {
+		// Asserts
+		static_assert(TensorType::Layout == Eigen::RowMajor,
+			"Invalid tensor layout type, expected tensor to be row major.");
+		static_assert(
+			std::size_t{ sizeof...(Ix) } == TensorType::NumIndices - 2,
+			"Incorrect number of indices passed to slice function, expected Rank - 2.");
+		// Stride
+		Eigen::Index d1, d2;
+		EigenStride stride = intern::tensor_stride_slice_rowm_rowt(tensor, d1, d2);
+		// Offset
+		Eigen::Index offset = tensor_offset(tensor, slice_offset...);
+		// Make non-const
+		return intern::SliceMatrixRRReturnType<TensorType>(tensor.data() + offset, d1, d2, stride);
 	}
 
 	/* <summary>Get a row major matrix view from a tensor with 2 rank dimensions.< / summary>
@@ -398,16 +401,12 @@ namespace tensorial {
 	template <typename TensorType,
 		typename... Ix,
 		std::enable_if_t<
-		std::conjunction<is_eigen_row_major_tensor<TensorType>,
+		std::conjunction<
+		is_eigen_row_major_tensor<TensorType>,
 		is_eigen_mappable_tensor<TensorType>,
 		is_eigen_mutable_tensor<TensorType>>::value,
 		int> = 0>
-		Eigen::Map<Eigen::Matrix<typename TensorType::Scalar,
-		Eigen::Dynamic,
-		Eigen::Dynamic,
-		Eigen::RowMajor>,
-		Eigen::RowMajor,
-		EigenStride>
+		intern::SliceMatrixRRReturnType<TensorType>
 		slice_matrix(TensorType& tensor) {
 		// Asserts
 		static_assert(TensorType::Layout == Eigen::RowMajor,
@@ -419,10 +418,10 @@ namespace tensorial {
 		Eigen::Index d1, d2;
 		EigenStride stride = intern::tensor_stride_slice_rowm_rowt(tensor, d1, d2);
 		// Make non-const
-		using DenseRowMajorMatrix = Eigen::Matrix<typename TensorType::Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-		using MappedDenseType = Eigen::Map<DenseRowMajorMatrix, Eigen::RowMajor, EigenStride>;
-		return MappedDenseType(tensor.data(), d1, d2, stride);
+		return intern::SliceMatrixRRReturnType<TensorType>(tensor.data(), d1, d2, stride);
 	}
+
+#pragma endregion
 
 #pragma endregion
 
@@ -442,7 +441,7 @@ namespace tensorial {
 		is_eigen_mappable_tensor<TensorType>,
 		std::negation<is_eigen_mutable_tensor<TensorType>>>::value,
 		int> = 0>
-		Eigen::Map<const Eigen::Matrix<typename TensorType::Scalar,
+		const Eigen::Map<const Eigen::Matrix<typename TensorType::Scalar,
 		Eigen::Dynamic,
 		Eigen::Dynamic,
 		Eigen::ColMajor>,
@@ -509,7 +508,7 @@ namespace tensorial {
 		is_eigen_mappable_tensor<TensorType>,
 		std::negation<is_eigen_mutable_tensor<TensorType>>>::value,
 		int> = 0>
-		Eigen::Map<const Eigen::Matrix<typename TensorType::Scalar,
+		const Eigen::Map<const Eigen::Matrix<typename TensorType::Scalar,
 		Eigen::Dynamic,
 		Eigen::Dynamic,
 		Eigen::ColMajor>,
@@ -669,6 +668,8 @@ namespace tensorial {
 		using TensorType = Tensor<FP, rank>;
 		using ViewType = TensorMap<FP, rank>;
 		using ViewTypeC = TensorMapC<FP, rank>;
+		using ViewMatrixType = Eigen::Map<MatrixNN<FP>, Eigen::RowMajor, EigenStride>;
+		using ViewMatrixTypeC = Eigen::Map<const MatrixNN<FP>, Eigen::RowMajor, EigenStride>;
 
 		TensorWrapper(std::array<std::int64_t, rank> shape) :
 			buffer_(new TensorType(shape)) { }
@@ -684,8 +685,17 @@ namespace tensorial {
 		/* Access a 2-dimensional subtensor given offsets.
 		*/
 		template<typename... Ix>
-		auto matrix(typename Ix... slice_offset) {
+		ViewMatrixType matrix(typename Ix... slice_offset) {
 			return slice_matrix(*buffer_, slice_offset...);
+		}
+
+		/* Access a 2-dimensional subtensor given offsets.
+		*/
+		template<typename... Ix>
+		ViewMatrixTypeC matrix(typename Ix... slice_offset) const {
+			const TensorType tensor;
+			ViewMatrixTypeC a{ slice_matrix(tensor, slice_offset...) };
+			return a;
 		}
 
 		/* Access the underlying tensor.

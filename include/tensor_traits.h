@@ -19,19 +19,23 @@ namespace tensorial {
 	// Expression verifying if T is a valid Eigen::Tensor... by checking if T::Base is a valid expression, 
 	//  will generate compiler garbage if the expression is valid but not a valid tensor type.
 	template <typename T>
-	using EigenTensorIdentifier = typename void_<typename T::Base>::type;
+	using EigenTensorIdentifier = typename void_<typename std::remove_const_t<T>::Base>::type;
 
 	// Check if type T inherits from TensorBase<T>
 	template <typename T, typename = void>
 	struct check_if_tensor_base { static constexpr bool value = false; };
 	template <typename T> // Specialization verifying if the EigenTensorIdentifier expression is valid
-	struct check_if_tensor_base<T, EigenTensorIdentifier<T>> { static constexpr bool value = std::is_base_of<Eigen::TensorBase<T>, T>::value; };
+	struct check_if_tensor_base<T, EigenTensorIdentifier<T>> { static constexpr bool value = std::is_base_of<Eigen::TensorBase<std::remove_const_t<T>>, std::remove_const_t<T>>::value; };
 
 	// Check if type T is an Eigen::Tensor<>
 	template <typename T, typename = void>
 	struct check_if_eigen_tensor { static constexpr bool value = false; };
 	template <typename T>   // Specialization verifying if the EigenTensorIdentifier expression is valid
-	struct check_if_eigen_tensor<T, EigenTensorIdentifier<T>> { static constexpr bool value = std::is_same<typename eigen_nested_type<T>::type, T>::value; };
+	struct check_if_eigen_tensor<T, EigenTensorIdentifier<T>> {
+		static constexpr bool value =
+			std::is_same<typename eigen_nested_type<T>::type, T>::value ||
+			std::is_same<const typename eigen_nested_type<T>::type, T>::value;
+	};
 
 	// True if type T inherits from TensorBase (accepts any T e.g. int/float/Tensor..)
 	template <typename T>
@@ -41,9 +45,13 @@ namespace tensorial {
 	constexpr bool is_eigen_tensor = is_any_eigen_tensor<T> && check_if_eigen_tensor<T>::value;
 
 
+	template <typename T> using is_eigen_nested_mutable = std::negation<std::is_const<typename eigen_nested_type<T>::type>>;
 	template <typename T> using is_eigen_mutable_tensor = std::conjunction<
 		std::negation<std::is_const<T>>,
-		std::negation<std::is_const<typename eigen_nested_type<T>::type>>>;
+		is_eigen_nested_mutable<T>>;
+	/* Non-mutable */
+	template <typename T> using is_eigen_const_tensor = std::negation<is_eigen_mutable_tensor<T>>;
+
 	template <typename T> using is_eigen_row_major_tensor = std::bool_constant<T::Layout == Eigen::RowMajor>;
 	template <typename T> using is_eigen_col_major_tensor = std::bool_constant<T::Layout == Eigen::ColMajor>;
 
