@@ -668,8 +668,6 @@ namespace tensorial {
 		using TensorType = Tensor<FP, rank>;
 		using ViewType = TensorMap<FP, rank>;
 		using ViewTypeC = TensorMapC<FP, rank>;
-		using ViewMatrixType = Eigen::Map<MatrixNN<FP>, Eigen::RowMajor, EigenStride>;
-		using ViewMatrixTypeC = Eigen::Map<const MatrixNN<FP>, Eigen::RowMajor, EigenStride>;
 
 		TensorWrapper(std::array<std::int64_t, rank> shape) :
 			buffer_(new TensorType(shape)) { }
@@ -685,17 +683,15 @@ namespace tensorial {
 		/* Access a 2-dimensional subtensor given offsets.
 		*/
 		template<typename... Ix>
-		ViewMatrixType matrix(typename Ix... slice_offset) {
+		auto matrix(typename Ix... slice_offset) {
 			return slice_matrix(*buffer_, slice_offset...);
 		}
 
 		/* Access a 2-dimensional subtensor given offsets.
 		*/
 		template<typename... Ix>
-		ViewMatrixTypeC matrix(typename Ix... slice_offset) const {
-			const TensorType tensor;
-			ViewMatrixTypeC a{ slice_matrix(tensor, slice_offset...) };
-			return a;
+		auto matrix(typename Ix... slice_offset) const {
+			return slice_matrix(*buffer_, slice_offset...);
 		}
 
 		/* Access the underlying tensor.
