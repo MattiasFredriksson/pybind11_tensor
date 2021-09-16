@@ -693,7 +693,6 @@ namespace tensorial {
 			return *this;
 		}
 
-
 		/* Access a 2-dimensional subtensor given offsets.
 		*/
 		template<typename... Ix>
@@ -755,6 +754,19 @@ namespace tensorial {
 		ViewTypeC view() const {
 			assert(buffer_);
 			return ViewTypeC(buffer_->data(), buffer_->dimensions());
+		}
+
+		/* Shape of the specific rank dimension.
+		*/
+		Eigen::Index dimension(std::size_t rank_dim) const {
+			assert(rank_dim < rank);
+			return buffer_->dimension(rank_dim);
+		}
+
+		/* Tensor shape
+		*/
+		auto dimensions() const {
+			return buffer_->dimensions();
 		}
 
 	private:
