@@ -669,6 +669,11 @@ namespace tensorial {
 		using ViewType = TensorMap<FP, rank>;
 		using ViewTypeC = TensorMapC<FP, rank>;
 
+		/* Empty invalid buffer.
+		*/
+		TensorWrapper() :
+			buffer_() { }
+
 		TensorWrapper(std::array<std::int64_t, rank> shape) :
 			buffer_(new TensorType(shape)) { }
 
@@ -679,11 +684,21 @@ namespace tensorial {
 
 		~TensorWrapper() = default;
 
+		TensorWrapper& operator=(const TensorWrapper& cpy) {
+			if (this == &cpy) {
+				return *this;
+			}
+			assert(cpy.buffer_);
+			buffer_ = cpy.buffer_;
+			return *this;
+		}
+
 
 		/* Access a 2-dimensional subtensor given offsets.
 		*/
 		template<typename... Ix>
 		auto matrix(typename Ix... slice_offset) {
+			assert(buffer_);
 			return slice_matrix(*buffer_, slice_offset...);
 		}
 
@@ -691,18 +706,21 @@ namespace tensorial {
 		*/
 		template<typename... Ix>
 		auto matrix(typename Ix... slice_offset) const {
+			assert(buffer_);
 			return slice_matrix(*buffer_, slice_offset...);
 		}
 
 		/* Access the underlying tensor.
 		 */
 		TensorType& data() {
+			assert(buffer_);
 			return *buffer_;
 		}
 
 		/* Access the underlying tensor.
 		 */
 		const TensorType& data() const {
+			assert(buffer_);
 			return *buffer_;
 		}
 
@@ -721,18 +739,21 @@ namespace tensorial {
 		/* Access a sharable pointer to the underlying tensor.
 		 */
 		std::shared_ptr<TensorType> shared() {
+			assert(buffer_);
 			return buffer_;
 		}
 
 		/* Get a view over the underlying tensor.
 		*/
 		ViewType view() {
+			assert(buffer_);
 			return ViewType(buffer_->data(), buffer_->dimensions());
 		}
 
 		/* Get a readonly view over the underlying tensor.
 		*/
 		ViewTypeC view() const {
+			assert(buffer_);
 			return ViewTypeC(buffer_->data(), buffer_->dimensions());
 		}
 
