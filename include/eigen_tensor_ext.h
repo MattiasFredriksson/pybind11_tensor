@@ -675,7 +675,13 @@ namespace tensorial {
 			buffer_() { }
 
 		TensorWrapper(std::array<std::int64_t, rank> shape) :
-			buffer_(new TensorType(shape)) { }
+			buffer_(new TensorType(shape))
+		{
+			for (int i = 0; i < rank; i++)
+			{
+				assert(shape[i] != 0);
+			}
+		}
 
 		TensorWrapper(const TensorWrapper& copy) :
 			buffer_(copy.buffer_) {}
@@ -763,10 +769,20 @@ namespace tensorial {
 			return buffer_->dimension(rank_dim);
 		}
 
+		/* Total number of elements. Cumultative product of shape dimensions.
+		*/
+		Eigen::Index size() const {
+			return buffer_->size();
+		}
+
 		/* Tensor shape
 		*/
 		auto dimensions() const {
 			return buffer_->dimensions();
+		}
+
+		FP* raw() {
+			return buffer_->data();
 		}
 
 	private:

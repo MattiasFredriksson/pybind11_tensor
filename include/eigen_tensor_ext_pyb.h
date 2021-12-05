@@ -33,7 +33,7 @@ namespace tensorial {
 		*/
 		m.def("make_tensor", [](std::array<std::int64_t, rank> shape, const py::object& dtype) {
 
-			py::dtype dtype_arg = py::dtype::from_args(std::move(dtype));;
+			py::dtype dtype_arg = py::dtype::from_args(dtype);
 
 			py::object obj;
 			if (dtype_arg.is(py::dtype::of<std::int8_t>())) {
