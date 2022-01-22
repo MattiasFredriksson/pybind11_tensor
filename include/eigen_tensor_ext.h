@@ -46,6 +46,15 @@ namespace tensorial {
 	template <typename FP = double>
 	using Vector4 = Eigen::Matrix<FP, 4, 1, Eigen::ColMajor>;
 
+	template <typename FP = double, int dim = Eigen::Dynamic>
+	using RowVector = Eigen::Matrix<FP, 1, dim, Eigen::RowMajor>;
+	template <typename FP = double>
+	using RowVector2 = Eigen::Matrix<FP, 1, 2, Eigen::RowMajor>;
+	template <typename FP = double>
+	using RowVector3 = Eigen::Matrix<FP, 1, 3, Eigen::RowMajor>;
+	template <typename FP = double>
+	using RowVector4 = Eigen::Matrix<FP, 1, 4, Eigen::RowMajor>;
+
 	template <typename FP = double>
 	using Matrix3 = Eigen::Matrix<FP, 3, 3, Eigen::RowMajor>;
 	template <typename FP = double>
